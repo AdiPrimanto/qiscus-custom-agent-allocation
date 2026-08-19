@@ -1,4 +1,5 @@
 import express from 'express';
+import { handleCustomAgentAllocation } from './webhooks/customAgentAllocation';
 
 export function createApp() {
   const app = express();
@@ -7,6 +8,8 @@ export function createApp() {
   app.get('/health', (_req, res) => {
     res.status(200).json({ status: 'ok' });
   });
+
+  app.post('/webhooks/custom-agent-allocation', handleCustomAgentAllocation);
 
   return app;
 }
