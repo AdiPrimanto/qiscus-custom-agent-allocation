@@ -1,5 +1,6 @@
 import express from 'express';
 import { handleCustomAgentAllocation } from './webhooks/customAgentAllocation';
+import { handleMarkAsResolved } from './webhooks/markAsResolved';
 
 export function createApp() {
   const app = express();
@@ -10,6 +11,7 @@ export function createApp() {
   });
 
   app.post('/webhooks/custom-agent-allocation', handleCustomAgentAllocation);
+  app.post('/webhooks/mark-as-resolved', handleMarkAsResolved);
 
   return app;
 }
