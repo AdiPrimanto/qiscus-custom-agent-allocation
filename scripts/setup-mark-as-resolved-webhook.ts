@@ -13,7 +13,7 @@ export async function registerMarkAsResolvedWebhook(webhookUrl: string): Promise
 if (require.main === module) {
   const webhookUrl = process.argv[2];
   if (!webhookUrl) {
-    console.error('Usage: npm run setup:webhook -- <https://your-deployed-url>/webhooks/mark-as-resolved');
+    console.error('Usage: npm run setup:webhook -- <https://your-deployed-url>/webhooks/<WEBHOOK_SECRET>/mark-as-resolved');
     process.exit(1);
   }
 

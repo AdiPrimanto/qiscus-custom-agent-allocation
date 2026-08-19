@@ -80,4 +80,29 @@ describe('tryAssign', () => {
     expect(second.status).toBe('assigned');
     expect(scope.isDone()).toBe(true);
   });
+
+  it('does not jump the queue ahead of an older waiting room', async () => {
+    await prisma.assignment.create({
+      data: {
+        roomId: 'room-older',
+        customerIdentifier: 'old@mail.com',
+        status: 'waiting',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      },
+    });
+
+    const scope = nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query({ room_id: 'room-newer' })
+      .reply(200, {
+        data: {
+          agents: [{ id: 50, name: 'Agent A', email: 'a@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 }],
+        },
+      });
+
+    const result = await tryAssign('room-newer', 'new@mail.com');
+
+    expect(result.status).toBe('waiting');
+    expect(scope.isDone()).toBe(false);
+  });
 });

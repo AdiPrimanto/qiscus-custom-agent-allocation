@@ -48,6 +48,13 @@ export async function tryAssign(roomId: string, customerIdentifier: string): Pro
     return assignment;
   }
 
+  const olderWaiting = await prisma.assignment.findFirst({
+    where: { status: 'waiting', createdAt: { lt: assignment.createdAt } },
+  });
+  if (olderWaiting) {
+    return assignment;
+  }
+
   const chosen = await pickAgent(roomId);
   if (!chosen) {
     return assignment;

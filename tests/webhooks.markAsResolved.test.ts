@@ -36,6 +36,24 @@ describe('POST /webhooks/mark-as-resolved', () => {
     expect(resolved?.resolvedAt).not.toBeNull();
   });
 
+  it('marks a still-waiting room as resolved so it stops being retried by reconciliation', async () => {
+    await prisma.assignment.create({
+      data: { roomId: '1961381', customerIdentifier: 'waiting@mail.com', status: 'waiting' },
+    });
+
+    const response = await request(app)
+      .post(`/webhooks/${env.webhookSecret}/mark-as-resolved`)
+      .send({
+        service: { id: 237789, room_id: '1961381', is_resolved: true, notes: null, first_comment_id: '15828800', last_comment_id: 15828826, source: 'qiscus' },
+        resolved_by: { id: 1576, email: 'admin@qiscus.com', name: 'Dewi Corp', type: 'admin', is_available: true },
+        customer: { user_id: 'waiting@mail.com' },
+      });
+
+    expect(response.status).toBe(200);
+    const resolved = await prisma.assignment.findFirst({ where: { roomId: '1961381' } });
+    expect(resolved?.status).toBe('resolved');
+  });
+
   it('rejects a payload missing service.room_id', async () => {
     const response = await request(app).post(`/webhooks/${env.webhookSecret}/mark-as-resolved`).send({ service: {} });
 

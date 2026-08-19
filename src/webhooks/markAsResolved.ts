@@ -13,7 +13,7 @@ export async function handleMarkAsResolved(req: Request, res: Response): Promise
   }
 
   await prisma.assignment.updateMany({
-    where: { roomId, status: 'assigned' },
+    where: { roomId, status: { in: ['waiting', 'assigned'] } },
     data: { status: 'resolved', resolvedAt: new Date() },
   });
 
