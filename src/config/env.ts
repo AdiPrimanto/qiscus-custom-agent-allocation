@@ -9,6 +9,7 @@ export interface AppEnv {
   qiscusSecretKey: string;
   qiscusAdminEmail: string;
   qiscusAdminPassword: string;
+  webhookSecret: string;
   maxConcurrentDefault: number;
   reconciliationIntervalMs: number;
 }
@@ -29,6 +30,7 @@ export function loadEnv(source: NodeJS.ProcessEnv): AppEnv {
     qiscusSecretKey: required('QISCUS_SECRET_KEY'),
     qiscusAdminEmail: source.QISCUS_ADMIN_EMAIL ?? '',
     qiscusAdminPassword: source.QISCUS_ADMIN_PASSWORD ?? '',
+    webhookSecret: required('WEBHOOK_SECRET'),
     maxConcurrentDefault: Number(source.MAX_CONCURRENT_DEFAULT ?? 2),
     reconciliationIntervalMs: Number(source.RECONCILIATION_INTERVAL_MS ?? 20000),
   };
