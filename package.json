@@ -10,6 +10,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "setup:webhook": "tsx scripts/setup-mark-as-resolved-webhook.ts"

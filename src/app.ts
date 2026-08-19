@@ -5,7 +5,7 @@ import { handleCustomAgentAllocation } from './webhooks/customAgentAllocation';
 import { handleMarkAsResolved } from './webhooks/markAsResolved';
 
 function requireWebhookSecret(req: express.Request, res: express.Response, next: express.NextFunction): void {
-  const provided = Buffer.from(req.params.webhookSecret ?? '', 'utf8');
+  const provided = Buffer.from(String(req.params.webhookSecret ?? ''), 'utf8');
   const expected = Buffer.from(env.webhookSecret, 'utf8');
 
   if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
@@ -25,6 +25,11 @@ export function createApp() {
 
   app.post('/webhooks/:webhookSecret/custom-agent-allocation', requireWebhookSecret, handleCustomAgentAllocation);
   app.post('/webhooks/:webhookSecret/mark-as-resolved', requireWebhookSecret, handleMarkAsResolved);
+
+  app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+    console.error('unhandled request error', err);
+    res.status(500).json({ error: 'internal error' });
+  });
 
   return app;
 }
