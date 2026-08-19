@@ -16,19 +16,19 @@ describe('qiscus client', () => {
       .matchHeader('Qiscus-App-Id', env.qiscusAppId)
       .matchHeader('Qiscus-Secret-Key', env.qiscusSecretKey)
       .reply(200, {
-        data: [
-          {
-            id: 1,
-            name: 'Dewi',
-            email: 'dewi@mail.com',
-            type: 2,
-            type_as_string: 'agent',
-            is_available: true,
-            is_verified: true,
-            current_customer_count: 1,
-            assigned_rules: ['qiscus_messaging'],
-          },
-        ],
+        data: {
+          agents: [
+            {
+              id: 1,
+              name: 'Dewi',
+              email: 'dewi@mail.com',
+              type: 2,
+              type_as_string: 'agent',
+              is_available: true,
+              current_customer_count: 1,
+            },
+          ],
+        },
       });
 
     const agents = await getAvailableAgents('room-1');

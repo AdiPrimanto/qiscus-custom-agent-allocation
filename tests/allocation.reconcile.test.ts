@@ -45,7 +45,9 @@ describe('reconcileWaitingAssignments', () => {
       .get('/api/v2/admin/service/available_agents')
       .query({ room_id: 'room-older' })
       .reply(200, {
-        data: [{ id: 40, name: 'Agent A', email: 'a@mail.com', type: 2, type_as_string: 'agent', is_available: true, is_verified: true, current_customer_count: 0, assigned_rules: [] }],
+        data: {
+          agents: [{ id: 40, name: 'Agent A', email: 'a@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 }],
+        },
       });
     nock(env.qiscusBaseUrl)
       .post('/api/v1/admin/service/assign_agent', 'room_id=room-older&agent_id=40')
@@ -54,7 +56,7 @@ describe('reconcileWaitingAssignments', () => {
     nock(env.qiscusBaseUrl)
       .get('/api/v2/admin/service/available_agents')
       .query({ room_id: 'room-newer' })
-      .reply(200, { data: [] });
+      .reply(200, { data: { agents: [] } });
 
     const assignedCount = await reconcileWaitingAssignments();
 

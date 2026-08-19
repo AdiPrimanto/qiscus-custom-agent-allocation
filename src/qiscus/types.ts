@@ -27,9 +27,7 @@ export interface AvailableAgent {
   type: number;
   type_as_string: string;
   is_available: boolean;
-  is_verified: boolean;
   current_customer_count: number;
-  assigned_rules: string[];
 }
 
 export interface AssignAgentResponse {

@@ -15,7 +15,7 @@ export async function getAvailableAgents(roomId: string): Promise<AvailableAgent
     headers: adminServiceHeaders(),
     params: { room_id: roomId },
   });
-  return response.data.data as AvailableAgent[];
+  return response.data.data.agents as AvailableAgent[];
 }
 
 export async function assignAgent(roomId: string, agentId: number): Promise<AssignAgentResponse> {

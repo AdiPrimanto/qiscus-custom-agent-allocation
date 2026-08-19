@@ -22,7 +22,9 @@ describe('POST /webhooks/custom-agent-allocation', () => {
       .get('/api/v2/admin/service/available_agents')
       .query({ room_id: '1905692' })
       .reply(200, {
-        data: [{ id: 22, name: 'dewi', email: 'dewi@mail.com', type: 2, type_as_string: 'agent', is_available: true, is_verified: false, current_customer_count: 0, assigned_rules: ['qiscus_messaging'] }],
+        data: {
+          agents: [{ id: 22, name: 'dewi', email: 'dewi@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 }],
+        },
       });
     nock(env.qiscusBaseUrl)
       .post('/api/v1/admin/service/assign_agent', 'room_id=1905692&agent_id=22')

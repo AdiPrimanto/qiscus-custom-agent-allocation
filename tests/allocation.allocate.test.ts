@@ -20,10 +20,12 @@ describe('tryAssign', () => {
       .get('/api/v2/admin/service/available_agents')
       .query({ room_id: 'room-1' })
       .reply(200, {
-        data: [
-          { id: 10, name: 'Agent Busy', email: 'busy@mail.com', type: 2, type_as_string: 'agent', is_available: true, is_verified: true, current_customer_count: 1, assigned_rules: [] },
-          { id: 11, name: 'Agent Free', email: 'free@mail.com', type: 2, type_as_string: 'agent', is_available: true, is_verified: true, current_customer_count: 0, assigned_rules: [] },
-        ],
+        data: {
+          agents: [
+            { id: 10, name: 'Agent Busy', email: 'busy@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 1 },
+            { id: 11, name: 'Agent Free', email: 'free@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 },
+          ],
+        },
       });
 
     nock(env.qiscusBaseUrl)
@@ -42,10 +44,12 @@ describe('tryAssign', () => {
       .get('/api/v2/admin/service/available_agents')
       .query({ room_id: 'room-2' })
       .reply(200, {
-        data: [
-          { id: 20, name: 'Agent Offline', email: 'offline@mail.com', type: 2, type_as_string: 'agent', is_available: false, is_verified: true, current_customer_count: 0, assigned_rules: [] },
-          { id: 21, name: 'Agent Full', email: 'full@mail.com', type: 2, type_as_string: 'agent', is_available: true, is_verified: true, current_customer_count: 2, assigned_rules: [] },
-        ],
+        data: {
+          agents: [
+            { id: 20, name: 'Agent Offline', email: 'offline@mail.com', type: 2, type_as_string: 'agent', is_available: false, current_customer_count: 0 },
+            { id: 21, name: 'Agent Full', email: 'full@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 2 },
+          ],
+        },
       });
 
     await prisma.agent.create({ data: { qiscusAgentId: 21, name: 'Agent Full', email: 'full@mail.com', maxConcurrent: 2 } });
@@ -61,7 +65,9 @@ describe('tryAssign', () => {
       .get('/api/v2/admin/service/available_agents')
       .query({ room_id: 'room-3' })
       .reply(200, {
-        data: [{ id: 30, name: 'Agent A', email: 'a@mail.com', type: 2, type_as_string: 'agent', is_available: true, is_verified: true, current_customer_count: 0, assigned_rules: [] }],
+        data: {
+          agents: [{ id: 30, name: 'Agent A', email: 'a@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 }],
+        },
       });
 
     nock(env.qiscusBaseUrl)
