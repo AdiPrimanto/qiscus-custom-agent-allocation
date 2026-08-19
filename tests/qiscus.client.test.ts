@@ -39,7 +39,7 @@ describe('qiscus client', () => {
 
   it('assigns an agent to a room', async () => {
     nock(env.qiscusBaseUrl)
-      .post('/api/v1/admin/service/assign_agent', 'room_id=room-1&agent_id=1')
+      .post('/api/v1/admin/service/assign_agent', 'room_id=room-1&agent_id=1&replace_latest_agent=true')
       .matchHeader('Qiscus-App-Id', env.qiscusAppId)
       .matchHeader('Qiscus-Secret-Key', env.qiscusSecretKey)
       .reply(200, {

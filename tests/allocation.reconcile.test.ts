@@ -50,7 +50,7 @@ describe('reconcileWaitingAssignments', () => {
         },
       });
     nock(env.qiscusBaseUrl)
-      .post('/api/v1/admin/service/assign_agent', 'room_id=room-older&agent_id=40')
+      .post('/api/v1/admin/service/assign_agent', 'room_id=room-older&agent_id=40&replace_latest_agent=true')
       .reply(200, { data: { added_agent: { id: 40, name: 'Agent A', email: 'a@mail.com', is_available: true } } });
 
     nock(env.qiscusBaseUrl)

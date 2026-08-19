@@ -27,7 +27,7 @@ describe('POST /webhooks/custom-agent-allocation', () => {
         },
       });
     nock(env.qiscusBaseUrl)
-      .post('/api/v1/admin/service/assign_agent', 'room_id=1905692&agent_id=22')
+      .post('/api/v1/admin/service/assign_agent', 'room_id=1905692&agent_id=22&replace_latest_agent=true')
       .reply(200, { data: { added_agent: { id: 22, name: 'dewi', email: 'dewi@mail.com', is_available: true } } });
 
     const response = await request(app)

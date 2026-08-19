@@ -21,7 +21,7 @@ export async function getAvailableAgents(roomId: string): Promise<AvailableAgent
 export async function assignAgent(roomId: string, agentId: number): Promise<AssignAgentResponse> {
   const response = await axios.post(
     `${env.qiscusBaseUrl}/api/v1/admin/service/assign_agent`,
-    new URLSearchParams({ room_id: roomId, agent_id: String(agentId) }),
+    new URLSearchParams({ room_id: roomId, agent_id: String(agentId), replace_latest_agent: 'true' }),
     { headers: adminServiceHeaders() },
   );
   return response.data as AssignAgentResponse;

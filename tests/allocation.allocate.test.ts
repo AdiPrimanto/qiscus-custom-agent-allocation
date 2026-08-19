@@ -29,7 +29,7 @@ describe('tryAssign', () => {
       });
 
     nock(env.qiscusBaseUrl)
-      .post('/api/v1/admin/service/assign_agent', 'room_id=room-1&agent_id=11')
+      .post('/api/v1/admin/service/assign_agent', 'room_id=room-1&agent_id=11&replace_latest_agent=true')
       .reply(200, { data: { added_agent: { id: 11, name: 'Agent Free', email: 'free@mail.com', is_available: true } } });
 
     const result = await tryAssign('room-1', 'customer@mail.com');
@@ -71,7 +71,7 @@ describe('tryAssign', () => {
       });
 
     nock(env.qiscusBaseUrl)
-      .post('/api/v1/admin/service/assign_agent', 'room_id=room-3&agent_id=30')
+      .post('/api/v1/admin/service/assign_agent', 'room_id=room-3&agent_id=30&replace_latest_agent=true')
       .reply(200, { data: { added_agent: { id: 30, name: 'Agent A', email: 'a@mail.com', is_available: true } } });
 
     await tryAssign('room-3', 'customer3@mail.com');
