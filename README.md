@@ -2,6 +2,9 @@
 
 Webhook service implementing Qiscus Omnichannel's Custom Agent Allocation: FIFO queue, per-agent quota, online-only assignment.
 
+**App ID:** `xxitg-980tjis6em26fxr`
+**Live service:** https://qiscus-custom-agent-allocation.onrender.com (health check: `/health`)
+
 ## Local setup
 
 1. `npm install`
@@ -19,15 +22,30 @@ Webhook service implementing Qiscus Omnichannel's Custom Agent Allocation: FIFO 
 
 ## Deploying
 
-1. Push this repo to GitHub, connect it to a new Railway project (Railway auto-detects the `Dockerfile`).
-2. Add a Postgres plugin in Railway and set `DATABASE_URL` to its connection string.
-3. Set the remaining env vars from `.env.example` in Railway's variables tab, including `WEBHOOK_SECRET`.
-4. Deploy. Note the public URL Railway assigns.
-5. In the Qiscus dashboard, go to **Settings > Custom Agent Allocation**, switch the toggle on, paste `https://<your-railway-url>/webhooks/<WEBHOOK_SECRET>/custom-agent-allocation` (substituting the actual `WEBHOOK_SECRET` value you configured) into the Webhook URL field, and click Save.
-6. Register the Mark As Resolved webhook via the API (required by the test spec, not the dashboard):
+Deployed on [Render](https://render.com) (Web Service + free Postgres, both built from the repo's `Dockerfile`). Any Docker-based host that runs a long-lived process works the same way — this service isn't serverless (it keeps a reconciliation `setInterval` running), so platforms limited to short-lived functions (e.g. Vercel, Netlify) won't work.
+
+1. Push this repo to GitHub. On Render, create a new **PostgreSQL** instance (free tier), then a new **Web Service** connected to the repo — Render auto-detects the `Dockerfile`.
+2. Set `DATABASE_URL` on the Web Service to the Postgres instance's **Internal Database URL** (same Render account, so internal networking is free and faster than external).
+3. Set the remaining env vars from `.env.example` in the Web Service's Environment tab, including `WEBHOOK_SECRET`. `QISCUS_ADMIN_EMAIL`/`QISCUS_ADMIN_PASSWORD` aren't needed here — they're only used by the setup script in step 6, which you can run from your own machine.
+4. Deploy. Render runs `prisma migrate deploy` automatically on every deploy (see `Dockerfile`'s `CMD`). Note the public URL Render assigns, and confirm `GET /<url>/health` returns `{"status":"ok"}`.
+5. In the Qiscus dashboard, go to **Settings > Custom Agent Allocation**, switch the toggle on, paste `https://<your-deployed-url>/webhooks/<WEBHOOK_SECRET>/custom-agent-allocation` (substituting the actual `WEBHOOK_SECRET` value you configured) into the Webhook URL field, and click Save.
+6. Register the Mark As Resolved webhook via the API (required by the test spec, not the dashboard) — run this from your own machine, with `QISCUS_ADMIN_EMAIL`/`QISCUS_ADMIN_PASSWORD` set in your local `.env`:
    ```bash
-   npm run setup:webhook -- https://<your-railway-url>/webhooks/<WEBHOOK_SECRET>/mark-as-resolved
+   npm run setup:webhook -- https://<your-deployed-url>/webhooks/<WEBHOOK_SECRET>/mark-as-resolved
    ```
+
+Render's free tier sleeps a service after ~15 minutes with no traffic; the next request pays a ~30s cold-start. An external uptime pinger (e.g. UptimeRobot) hitting `/health` every 5 minutes keeps it warm — that's optional, not required for correctness.
+
+### Configuring an agent's quota
+
+Each agent's `max_concurrent` defaults to `MAX_CONCURRENT_DEFAULT` (2) the first time the service sees them. To set a different quota for a specific agent, update their row directly:
+
+```bash
+docker compose exec postgres psql -U postgres -d qiscus_agent_allocation \
+  -c "UPDATE agents SET max_concurrent = 5 WHERE email = 'agent@example.com';"
+```
+
+(Against the deployed database, swap the `docker compose exec` prefix for `psql "$DATABASE_URL"` using the Render Postgres instance's External Database URL.)
 
 ## How it works
 
@@ -35,3 +53,8 @@ Webhook service implementing Qiscus Omnichannel's Custom Agent Allocation: FIFO 
 - `POST /webhooks/:webhookSecret/mark-as-resolved` — Qiscus calls this when a chat is resolved. The service marks the local assignment `resolved` and immediately tries to pull the next `waiting` customer in FIFO order.
 - A background interval (`RECONCILIATION_INTERVAL_MS`, default 20s) re-checks any `waiting` customers in case an agent came online outside of a resolve event. It skips entirely (no API calls) when the queue is empty.
 - Both webhook routes require the shared `WEBHOOK_SECRET` as a URL path segment. Qiscus doesn't support payload signing or custom headers on either webhook type, so the URL is the only thing Qiscus lets you configure — a missing or wrong secret returns `404` without revealing whether the route exists.
+
+## Known limitations
+
+- **URL-embedded secret, not a signature.** Qiscus offers no HMAC/signing mechanism for either webhook, so `WEBHOOK_SECRET` in the path is the strongest available mitigation, not a cryptographic guarantee. Keep it long and random, and treat access/proxy logs that might capture the URL as sensitive.
+- **FIFO ordering only applies once a room starts waiting.** A brand-new arrival skips straight to `pickAgent` if the queue is empty at that instant; it only defers to older `waiting` rooms when the queue is already non-empty. Under concurrent traffic there's a narrow window where two near-simultaneous new arrivals could race past each other, though the periodic reconciliation (`RECONCILIATION_INTERVAL_MS`) re-sorts by `created_at` regardless.
