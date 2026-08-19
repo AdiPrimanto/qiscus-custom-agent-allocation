@@ -4,7 +4,9 @@ import { getOrCreateLocalAgent } from '../src/allocation/agents';
 
 describe('getOrCreateLocalAgent', () => {
   afterAll(async () => {
-    await prisma.agent.deleteMany();
+    await prisma.agent.deleteMany({
+      where: { qiscusAgentId: { in: [501, 502] } },
+    });
     await prisma.$disconnect();
   });
 
@@ -23,5 +25,6 @@ describe('getOrCreateLocalAgent', () => {
 
     expect(all).toHaveLength(1);
     expect(updated.name).toBe('Citra Renamed');
+    expect(updated.maxConcurrent).toBe(2);
   });
 });
