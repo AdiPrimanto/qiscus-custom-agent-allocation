@@ -13,6 +13,8 @@ describe('qiscus client', () => {
     nock(env.qiscusBaseUrl)
       .get('/api/v2/admin/service/available_agents')
       .query({ room_id: 'room-1' })
+      .matchHeader('Qiscus-App-Id', env.qiscusAppId)
+      .matchHeader('Qiscus-Secret-Key', env.qiscusSecretKey)
       .reply(200, {
         data: [
           {
@@ -38,6 +40,8 @@ describe('qiscus client', () => {
   it('assigns an agent to a room', async () => {
     nock(env.qiscusBaseUrl)
       .post('/api/v1/admin/service/assign_agent', 'room_id=room-1&agent_id=1')
+      .matchHeader('Qiscus-App-Id', env.qiscusAppId)
+      .matchHeader('Qiscus-Secret-Key', env.qiscusSecretKey)
       .reply(200, {
         data: { added_agent: { id: 1, name: 'Dewi', email: 'dewi@mail.com', is_available: true } },
       });
@@ -50,6 +54,7 @@ describe('qiscus client', () => {
   it('logs in as admin and returns the authentication token', async () => {
     nock(env.qiscusBaseUrl)
       .post('/api/v1/auth')
+      .matchHeader('content-type', /^multipart\/form-data/)
       .reply(200, { data: { user: { authentication_token: 'token-123' } } });
 
     const token = await loginAdmin('admin@example.com', 'secret');
@@ -60,6 +65,9 @@ describe('qiscus client', () => {
   it('registers the mark as resolved webhook', async () => {
     nock(env.qiscusBaseUrl)
       .post('/api/v1/app/webhook/mark_as_resolved')
+      .matchHeader('authorization', 'token-123')
+      .matchHeader('Qiscus-App-Id', env.qiscusAppId)
+      .matchHeader('content-type', /^multipart\/form-data/)
       .reply(200, { data: { id: 1 } });
 
     await expect(
