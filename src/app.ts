@@ -1,10 +1,14 @@
+import crypto from 'node:crypto';
 import express from 'express';
 import { env } from './config/env';
 import { handleCustomAgentAllocation } from './webhooks/customAgentAllocation';
 import { handleMarkAsResolved } from './webhooks/markAsResolved';
 
 function requireWebhookSecret(req: express.Request, res: express.Response, next: express.NextFunction): void {
-  if (req.params.webhookSecret !== env.webhookSecret) {
+  const provided = Buffer.from(req.params.webhookSecret ?? '', 'utf8');
+  const expected = Buffer.from(env.webhookSecret, 'utf8');
+
+  if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
     res.status(404).end();
     return;
   }
