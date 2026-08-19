@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Agent {
+  id            Int          @id @default(autoincrement())
+  qiscusAgentId Int          @unique @map("qiscus_agent_id")
+  name          String
+  email         String
+  maxConcurrent Int          @default(2) @map("max_concurrent")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+  assignments   Assignment[]
+
+  @@map("agents")
+}
+
+enum AssignmentStatus {
+  waiting
+  assigned
+  resolved
+}
+
+model Assignment {
+  id                 Int              @id @default(autoincrement())
+  roomId             String           @map("room_id")
+  customerIdentifier String           @map("customer_identifier")
+  agentId            Int?             @map("agent_id")
+  agent              Agent?           @relation(fields: [agentId], references: [id])
+  status             AssignmentStatus @default(waiting)
+  createdAt          DateTime         @default(now()) @map("created_at")
+  assignedAt         DateTime?        @map("assigned_at")
+  resolvedAt         DateTime?        @map("resolved_at")
+
+  @@index([status, createdAt])
+  @@index([roomId])
+  @@map("assignments")
+}
