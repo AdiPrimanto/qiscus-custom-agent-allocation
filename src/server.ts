@@ -1,8 +1,15 @@
 import { createApp } from './app';
+import { env } from './config/env';
+import { reconcileWaitingAssignments } from './allocation/reconcile';
 
-const port = Number(process.env.PORT ?? 3000);
 const app = createApp();
 
-app.listen(port, () => {
-  console.log(`qiscus-custom-agent-allocation listening on port ${port}`);
+app.listen(env.port, () => {
+  console.log(`qiscus-custom-agent-allocation listening on port ${env.port}`);
 });
+
+setInterval(() => {
+  reconcileWaitingAssignments().catch((error) => {
+    console.error('reconciliation failed', error);
+  });
+}, env.reconciliationIntervalMs);
