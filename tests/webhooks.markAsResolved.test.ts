@@ -19,7 +19,7 @@ describe('POST /webhooks/mark-as-resolved', () => {
   it('marks the matching assigned room as resolved', async () => {
     const agent = await prisma.agent.create({ data: { qiscusAgentId: 99, name: 'Dewi', email: 'dewi@mail.com', maxConcurrent: 2 } });
     await prisma.assignment.create({
-      data: { roomId: '1961380', customerIdentifier: 'auliaollegh@gmail.com', agentId: agent.id, status: 'assigned', assignedAt: new Date() },
+      data: { roomId: '1961380', agentId: agent.id, status: 'assigned', assignedAt: new Date() },
     });
 
     const response = await request(app)
@@ -38,7 +38,7 @@ describe('POST /webhooks/mark-as-resolved', () => {
 
   it('marks a still-waiting room as resolved so it stops being retried by reconciliation', async () => {
     await prisma.assignment.create({
-      data: { roomId: '1961381', customerIdentifier: 'waiting@mail.com', status: 'waiting' },
+      data: { roomId: '1961381', status: 'waiting' },
     });
 
     const response = await request(app)
@@ -63,7 +63,7 @@ describe('POST /webhooks/mark-as-resolved', () => {
   it('rejects requests with an incorrect webhook secret and leaves the assignment unresolved', async () => {
     const agent = await prisma.agent.create({ data: { qiscusAgentId: 99, name: 'Dewi', email: 'dewi@mail.com', maxConcurrent: 2 } });
     await prisma.assignment.create({
-      data: { roomId: '1961380', customerIdentifier: 'auliaollegh@gmail.com', agentId: agent.id, status: 'assigned', assignedAt: new Date() },
+      data: { roomId: '1961380', agentId: agent.id, status: 'assigned', assignedAt: new Date() },
     });
 
     const response = await request(app)

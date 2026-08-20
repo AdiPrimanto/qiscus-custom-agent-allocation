@@ -54,7 +54,7 @@ async function commitAssignment(
   });
 }
 
-export async function tryAssign(roomId: string, customerIdentifier: string): Promise<Assignment> {
+export async function tryAssign(roomId: string): Promise<Assignment> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ALLOCATION_LOCK_KEY})`;
 
@@ -64,7 +64,7 @@ export async function tryAssign(roomId: string, customerIdentifier: string): Pro
 
     if (!assignment) {
       assignment = await tx.assignment.create({
-        data: { roomId, customerIdentifier, status: 'waiting' },
+        data: { roomId, status: 'waiting' },
       });
     }
 

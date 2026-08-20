@@ -29,7 +29,6 @@ enum AssignmentStatus {
 model Assignment {
   id                 Int              @id @default(autoincrement())
   roomId             String           @map("room_id")
-  customerIdentifier String           @map("customer_identifier")
   agentId            Int?             @map("agent_id")
   agent              Agent?           @relation(fields: [agentId], references: [id])
   status             AssignmentStatus @default(waiting)

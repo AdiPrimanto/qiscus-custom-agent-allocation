@@ -27,7 +27,6 @@ describe('reconcileWaitingAssignments', () => {
     const older = await prisma.assignment.create({
       data: {
         roomId: 'room-older',
-        customerIdentifier: 'old@mail.com',
         status: 'waiting',
         createdAt: new Date('2026-01-01T00:00:00Z'),
       },
@@ -35,7 +34,6 @@ describe('reconcileWaitingAssignments', () => {
     await prisma.assignment.create({
       data: {
         roomId: 'room-newer',
-        customerIdentifier: 'new@mail.com',
         status: 'waiting',
         createdAt: new Date('2026-01-01T00:01:00Z'),
       },

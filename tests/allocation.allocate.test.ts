@@ -32,7 +32,7 @@ describe('tryAssign', () => {
       .post('/api/v1/admin/service/assign_agent', 'room_id=room-1&agent_id=11&replace_latest_agent=true')
       .reply(200, { data: { added_agent: { id: 11, name: 'Agent Free', email: 'free@mail.com', is_available: true } } });
 
-    const result = await tryAssign('room-1', 'customer@mail.com');
+    const result = await tryAssign('room-1');
 
     expect(result.status).toBe('assigned');
     const agent = await prisma.agent.findUnique({ where: { qiscusAgentId: 11 } });
@@ -54,7 +54,7 @@ describe('tryAssign', () => {
 
     await prisma.agent.create({ data: { qiscusAgentId: 21, name: 'Agent Full', email: 'full@mail.com', maxConcurrent: 2 } });
 
-    const result = await tryAssign('room-2', 'customer2@mail.com');
+    const result = await tryAssign('room-2');
 
     expect(result.status).toBe('waiting');
     expect(result.agentId).toBeNull();
@@ -74,8 +74,8 @@ describe('tryAssign', () => {
       .post('/api/v1/admin/service/assign_agent', 'room_id=room-3&agent_id=30&replace_latest_agent=true')
       .reply(200, { data: { added_agent: { id: 30, name: 'Agent A', email: 'a@mail.com', is_available: true } } });
 
-    await tryAssign('room-3', 'customer3@mail.com');
-    const second = await tryAssign('room-3', 'customer3@mail.com');
+    await tryAssign('room-3');
+    const second = await tryAssign('room-3');
 
     expect(second.status).toBe('assigned');
     expect(scope.isDone()).toBe(true);
@@ -85,7 +85,6 @@ describe('tryAssign', () => {
     await prisma.assignment.create({
       data: {
         roomId: 'room-older',
-        customerIdentifier: 'old@mail.com',
         status: 'waiting',
         createdAt: new Date('2026-01-01T00:00:00Z'),
       },
@@ -100,7 +99,7 @@ describe('tryAssign', () => {
         },
       });
 
-    const result = await tryAssign('room-newer', 'new@mail.com');
+    const result = await tryAssign('room-newer');
 
     expect(result.status).toBe('waiting');
     expect(scope.isDone()).toBe(false);
@@ -128,7 +127,7 @@ describe('tryAssign', () => {
       .reply(200, { data: { added_agent: { id: 60, name: 'Agent Race', email: 'race@mail.com', is_available: true } } });
 
     const roomIds = ['room-race-1', 'room-race-2', 'room-race-3', 'room-race-4', 'room-race-5'];
-    await Promise.all(roomIds.map((roomId) => tryAssign(roomId, `${roomId}@mail.com`)));
+    await Promise.all(roomIds.map((roomId) => tryAssign(roomId)));
 
     const agent = await prisma.agent.findUnique({ where: { qiscusAgentId: 60 } });
     const assignedCount = await prisma.assignment.count({ where: { agentId: agent?.id, status: 'assigned' } });

@@ -17,7 +17,6 @@ describe('prisma client', () => {
     const assignment = await prisma.assignment.create({
       data: {
         roomId: 'room-1',
-        customerIdentifier: 'customer@mail.com',
         agentId: agent.id,
         status: 'assigned',
         assignedAt: new Date(),

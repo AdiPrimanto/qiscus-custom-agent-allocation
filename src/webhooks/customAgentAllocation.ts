@@ -10,6 +10,6 @@ export async function handleCustomAgentAllocation(req: Request, res: Response): 
     return;
   }
 
-  await tryAssign(payload.room_id, payload.email);
+  await tryAssign(payload.room_id);
   res.status(200).json({ status: 'ok' });
 }
