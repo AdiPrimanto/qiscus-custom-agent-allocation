@@ -105,4 +105,39 @@ describe('tryAssign', () => {
     expect(result.status).toBe('waiting');
     expect(scope.isDone()).toBe(false);
   });
+
+  it('does not exceed an agent max_concurrent when many rooms race for the same agent', async () => {
+    // Qiscus's current_customer_count is deliberately static (always 0) across
+    // every call, simulating the exact staleness that caused the demo bug: the
+    // count hasn't caught up yet when the next concurrent request reads it.
+    nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query(() => true)
+      .times(5)
+      .reply(200, {
+        data: {
+          agents: [
+            { id: 60, name: 'Agent Race', email: 'race@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 },
+          ],
+        },
+      });
+
+    nock(env.qiscusBaseUrl)
+      .post('/api/v1/admin/service/assign_agent')
+      .times(5)
+      .reply(200, { data: { added_agent: { id: 60, name: 'Agent Race', email: 'race@mail.com', is_available: true } } });
+
+    const roomIds = ['room-race-1', 'room-race-2', 'room-race-3', 'room-race-4', 'room-race-5'];
+    await Promise.all(roomIds.map((roomId) => tryAssign(roomId, `${roomId}@mail.com`)));
+
+    const agent = await prisma.agent.findUnique({ where: { qiscusAgentId: 60 } });
+    const assignedCount = await prisma.assignment.count({ where: { agentId: agent?.id, status: 'assigned' } });
+    const waitingCount = await prisma.assignment.count({ where: { roomId: { in: roomIds }, status: 'waiting' } });
+
+    // Exactly max_concurrent get assigned — serializing the whole decide+commit
+    // sequence also makes the FIFO guard correct, so the rest never even reach
+    // pickAgent and stay queued instead of racing Qiscus for the same slot.
+    expect(assignedCount).toBe(2);
+    expect(waitingCount).toBe(3);
+  });
 });

@@ -11,15 +11,15 @@ describe('getOrCreateLocalAgent', () => {
   });
 
   it('creates a new local agent on first sight with the default quota', async () => {
-    const agent = await getOrCreateLocalAgent({ id: 501, name: 'Budi', email: 'budi@mail.com' });
+    const agent = await getOrCreateLocalAgent(prisma, { id: 501, name: 'Budi', email: 'budi@mail.com' });
 
     expect(agent.qiscusAgentId).toBe(501);
     expect(agent.maxConcurrent).toBe(2);
   });
 
   it('reuses the existing local agent and updates its name on repeat sightings', async () => {
-    await getOrCreateLocalAgent({ id: 502, name: 'Citra', email: 'citra@mail.com' });
-    const updated = await getOrCreateLocalAgent({ id: 502, name: 'Citra Renamed', email: 'citra@mail.com' });
+    await getOrCreateLocalAgent(prisma, { id: 502, name: 'Citra', email: 'citra@mail.com' });
+    const updated = await getOrCreateLocalAgent(prisma, { id: 502, name: 'Citra Renamed', email: 'citra@mail.com' });
 
     const all = await prisma.agent.findMany({ where: { qiscusAgentId: 502 } });
 
