@@ -3,7 +3,7 @@ import { afterAll, afterEach, describe, expect, it } from 'vitest';
 import nock from 'nock';
 import { env } from '../src/config/env';
 import { prisma } from '../src/db/prisma';
-import { tryAssign } from '../src/allocation/allocate';
+import { tryAssign, tryAssignWaiting } from '../src/allocation/allocate';
 
 describe('tryAssign', () => {
   afterEach(async () => {
@@ -138,5 +138,33 @@ describe('tryAssign', () => {
     // pickAgent and stay queued instead of racing Qiscus for the same slot.
     expect(assignedCount).toBe(2);
     expect(waitingCount).toBe(3);
+  });
+
+  it('does not double-assign a room when two overlapping reconcile passes race on the same stale snapshot', async () => {
+    const assignment = await prisma.assignment.create({
+      data: { roomId: 'room-overlap', status: 'waiting', createdAt: new Date('2026-01-01T00:00:00Z') },
+    });
+
+    nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query({ room_id: 'room-overlap' })
+      .reply(200, {
+        data: {
+          agents: [{ id: 70, name: 'Agent Solo', email: 'solo@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 }],
+        },
+      });
+
+    nock(env.qiscusBaseUrl)
+      .post('/api/v1/admin/service/assign_agent', 'room_id=room-overlap&agent_id=70&replace_latest_agent=true')
+      .reply(200, { data: { added_agent: { id: 70, name: 'Agent Solo', email: 'solo@mail.com', is_available: true } } });
+
+    // Two overlapping reconcile cycles both fetched this same 'waiting' row
+    // before either got the allocation lock — simulate both calling
+    // tryAssignWaiting with the same now-stale snapshot.
+    const [first, second] = await Promise.all([tryAssignWaiting(assignment), tryAssignWaiting(assignment)]);
+
+    expect(first.status).toBe('assigned');
+    expect(second.status).toBe('assigned');
+    expect(first.agentId).toBe(second.agentId);
   });
 });

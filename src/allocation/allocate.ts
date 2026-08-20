@@ -99,11 +99,22 @@ export async function tryAssignWaiting(assignment: Assignment): Promise<Assignme
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ALLOCATION_LOCK_KEY})`;
 
-    const chosen = await pickAgent(tx, assignment.roomId);
-    if (!chosen) {
-      return assignment;
+    // `assignment` is a snapshot fetched by the caller (reconcile's findMany)
+    // *before* this call ever reached the lock. If another reconcile pass
+    // (the scheduler firing again before the previous pass drained, or an
+    // overlapping mark-as-resolved reconcile) already committed this same
+    // room while we were queued, that snapshot is stale — re-read the row
+    // inside the lock and bail out instead of assigning it a second time.
+    const fresh = await tx.assignment.findUnique({ where: { id: assignment.id } });
+    if (!fresh || fresh.status !== 'waiting') {
+      return fresh ?? assignment;
     }
 
-    return commitAssignment(tx, assignment, chosen);
+    const chosen = await pickAgent(tx, fresh.roomId);
+    if (!chosen) {
+      return fresh;
+    }
+
+    return commitAssignment(tx, fresh, chosen);
   }, TRANSACTION_OPTIONS);
 }
