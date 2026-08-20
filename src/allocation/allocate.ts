@@ -11,6 +11,13 @@ import type { AvailableAgent } from '../qiscus/types';
 // behind each other instead of running the check-then-write race in parallel.
 const ALLOCATION_LOCK_KEY = 872_364_501;
 
+// The lock wait is spent *inside* the transaction (it's the first statement
+// after BEGIN), so it counts against Prisma's `timeout`. Under a burst, a
+// request queued behind ~15+ others waiting on the same lock can blow past a
+// tight timeout before it ever gets to do its own work — 30s/10s gives real
+// headroom for bursts the size that caused the original bug (~20 rooms).
+const TRANSACTION_OPTIONS = { timeout: 30000, maxWait: 10000 };
+
 async function pickAgent(tx: Prisma.TransactionClient, roomId: string): Promise<AvailableAgent | null> {
   const candidates = await getAvailableAgents(roomId);
   const online = candidates.filter((agent) => agent.is_available);
@@ -85,7 +92,7 @@ export async function tryAssign(roomId: string): Promise<Assignment> {
     }
 
     return commitAssignment(tx, assignment, chosen);
-  }, { timeout: 15000 });
+  }, TRANSACTION_OPTIONS);
 }
 
 export async function tryAssignWaiting(assignment: Assignment): Promise<Assignment> {
@@ -98,5 +105,5 @@ export async function tryAssignWaiting(assignment: Assignment): Promise<Assignme
     }
 
     return commitAssignment(tx, assignment, chosen);
-  }, { timeout: 15000 });
+  }, TRANSACTION_OPTIONS);
 }

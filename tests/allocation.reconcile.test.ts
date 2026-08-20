@@ -62,4 +62,46 @@ describe('reconcileWaitingAssignments', () => {
     const olderResult = await prisma.assignment.findUnique({ where: { id: older.id } });
     expect(olderResult?.status).toBe('assigned');
   });
+
+  it('keeps reconciling later rooms when an earlier one fails', async () => {
+    await prisma.assignment.create({
+      data: {
+        roomId: 'room-fails',
+        status: 'waiting',
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+      },
+    });
+    await prisma.assignment.create({
+      data: {
+        roomId: 'room-still-works',
+        status: 'waiting',
+        createdAt: new Date('2026-01-01T00:01:00Z'),
+      },
+    });
+
+    nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query({ room_id: 'room-fails' })
+      .replyWithError('connection reset');
+
+    nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query({ room_id: 'room-still-works' })
+      .reply(200, {
+        data: {
+          agents: [{ id: 41, name: 'Agent B', email: 'b@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 }],
+        },
+      });
+    nock(env.qiscusBaseUrl)
+      .post('/api/v1/admin/service/assign_agent', 'room_id=room-still-works&agent_id=41&replace_latest_agent=true')
+      .reply(200, { data: { added_agent: { id: 41, name: 'Agent B', email: 'b@mail.com', is_available: true } } });
+
+    const assignedCount = await reconcileWaitingAssignments();
+
+    expect(assignedCount).toBe(1);
+    const failed = await prisma.assignment.findFirst({ where: { roomId: 'room-fails' } });
+    expect(failed?.status).toBe('waiting');
+    const worked = await prisma.assignment.findFirst({ where: { roomId: 'room-still-works' } });
+    expect(worked?.status).toBe('assigned');
+  });
 });
