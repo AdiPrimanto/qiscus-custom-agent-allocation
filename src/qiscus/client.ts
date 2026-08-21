@@ -3,6 +3,14 @@ import FormData from 'form-data';
 import { env } from '../config/env';
 import type { AssignAgentResponse, AvailableAgent } from './types';
 
+// A hung Qiscus response (connection open, no reply) would otherwise block
+// axios forever. getAvailableAgents/assignAgent run inside the allocation
+// advisory lock, so an unbounded wait there stalls the *entire* queue, not
+// just one room. Kept comfortably under the transaction `timeout` (30s) in
+// allocate.ts so a slow Qiscus call fails on its own terms instead of
+// surfacing as a confusing "transaction already closed" error.
+export const QISCUS_API_TIMEOUT_MS = 15000;
+
 function adminServiceHeaders() {
   return {
     'Qiscus-App-Id': env.qiscusAppId,
@@ -14,6 +22,7 @@ export async function getAvailableAgents(roomId: string): Promise<AvailableAgent
   const response = await axios.get(`${env.qiscusBaseUrl}/api/v2/admin/service/available_agents`, {
     headers: adminServiceHeaders(),
     params: { room_id: roomId },
+    timeout: QISCUS_API_TIMEOUT_MS,
   });
   return response.data.data.agents as AvailableAgent[];
 }
@@ -22,7 +31,7 @@ export async function assignAgent(roomId: string, agentId: number): Promise<Assi
   const response = await axios.post(
     `${env.qiscusBaseUrl}/api/v1/admin/service/assign_agent`,
     new URLSearchParams({ room_id: roomId, agent_id: String(agentId), replace_latest_agent: 'true' }),
-    { headers: adminServiceHeaders() },
+    { headers: adminServiceHeaders(), timeout: QISCUS_API_TIMEOUT_MS },
   );
   return response.data as AssignAgentResponse;
 }
@@ -34,6 +43,7 @@ export async function loginAdmin(email: string, password: string): Promise<strin
 
   const response = await axios.post(`${env.qiscusBaseUrl}/api/v1/auth`, form, {
     headers: form.getHeaders(),
+    timeout: QISCUS_API_TIMEOUT_MS,
   });
   return response.data.data.user.authentication_token as string;
 }
@@ -53,5 +63,6 @@ export async function setMarkAsResolvedWebhook(
       Authorization: adminToken,
       'Qiscus-App-Id': env.qiscusAppId,
     },
+    timeout: QISCUS_API_TIMEOUT_MS,
   });
 }

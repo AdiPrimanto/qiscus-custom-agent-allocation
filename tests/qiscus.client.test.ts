@@ -1,10 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import axios from 'axios';
 import nock from 'nock';
 import { env } from '../src/config/env';
 import {
   assignAgent,
   getAvailableAgents,
   loginAdmin,
+  QISCUS_API_TIMEOUT_MS,
   setMarkAsResolvedWebhook,
 } from '../src/qiscus/client';
 
@@ -73,5 +75,40 @@ describe('qiscus client', () => {
     await expect(
       setMarkAsResolvedWebhook('token-123', 'https://example.com/webhooks/mark-as-resolved', true),
     ).resolves.toBeUndefined();
+  });
+
+  describe('request timeout', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    // A hung Qiscus response (not an error - just never replies) holds the
+    // global allocation lock open for as long as axios is willing to wait.
+    // With no timeout, that's indefinite. Verified via a spy rather than an
+    // actual slow nock delay so this stays fast instead of taking 15s+ to run.
+    it('sets a timeout on getAvailableAgents so a hung response cannot block the allocation lock forever', async () => {
+      const getSpy = vi.spyOn(axios, 'get').mockResolvedValueOnce({ data: { data: { agents: [] } } });
+
+      await getAvailableAgents('room-1');
+
+      expect(getSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ timeout: QISCUS_API_TIMEOUT_MS }),
+      );
+    });
+
+    it('sets a timeout on assignAgent', async () => {
+      const postSpy = vi
+        .spyOn(axios, 'post')
+        .mockResolvedValueOnce({ data: { data: { added_agent: {} } } });
+
+      await assignAgent('room-1', 1);
+
+      expect(postSpy).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.anything(),
+        expect.objectContaining({ timeout: QISCUS_API_TIMEOUT_MS }),
+      );
+    });
   });
 });
