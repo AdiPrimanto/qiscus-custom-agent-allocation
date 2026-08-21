@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 660" role="img" aria-label="Diagram race condition alokasi chat: sebelum fix dua request bersamaan baca snapshot kuota yang sama dan sama-sama lolos, agent jadi over-assigned; sesudah fix advisory lock memaksa request kedua menunggu dan membaca ulang kuota terbaru sebelum dicek.">
+  <title>Race condition alokasi chat — sebelum vs sesudah advisory lock</title>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569" />
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1160" height="660" fill="#ffffff" />
+
+  <!-- ===== PANEL 1: SEBELUM FIX ===== -->
+  <text x="40" y="34" font-family="sans-serif" font-size="18" font-weight="700" fill="#1f2937">SEBELUM FIX — race condition</text>
+  <rect x="40" y="42" width="260" height="4" fill="#dc2626" />
+
+  <text x="20" y="99" font-family="sans-serif" font-size="13" font-weight="700" fill="#1f2937">Request A</text>
+  <text x="20" y="189" font-family="sans-serif" font-size="13" font-weight="700" fill="#1f2937">Request B</text>
+
+  <!-- Row A -->
+  <rect x="130" y="75" width="150" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="205" y="99" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1f2937">Baca count = 1</text>
+  <line x1="280" y1="95" x2="308" y2="95" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="310" y="75" width="170" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="395" y="99" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1f2937">1 &lt; 2 (max)? ✓</text>
+  <line x1="480" y1="95" x2="508" y2="95" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="510" y="75" width="170" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="595" y="99" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1f2937">assign_agent()</text>
+
+  <!-- Row B -->
+  <rect x="130" y="165" width="150" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="205" y="189" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1f2937">Baca count = 1</text>
+  <line x1="280" y1="185" x2="308" y2="185" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="310" y="165" width="170" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="395" y="189" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1f2937">1 &lt; 2 (max)? ✓</text>
+  <line x1="480" y1="185" x2="508" y2="185" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="510" y="165" width="170" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="595" y="189" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1f2937">assign_agent()</text>
+
+  <!-- note between the two rows -->
+  <line x1="205" y1="115" x2="205" y2="165" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,3" />
+  <text x="215" y="145" font-family="sans-serif" font-size="11" font-style="italic" fill="#64748b">jalan bersamaan — masing-masing gak tau ada request lain</text>
+
+  <!-- convergence to shared state -->
+  <line x1="595" y1="115" x2="480" y2="248" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow)" />
+  <line x1="595" y1="205" x2="510" y2="248" stroke="#dc2626" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="350" y="250" width="260" height="50" rx="6" fill="#fee2e2" stroke="#dc2626" stroke-width="1.5" />
+  <text x="480" y="271" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#991b1b">Agent count di Qiscus = 3</text>
+  <text x="480" y="287" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#991b1b">melebihi max_concurrent = 2</text>
+
+  <line x1="20" y1="330" x2="1140" y2="330" stroke="#e2e8f0" stroke-width="1.5" />
+
+  <!-- ===== PANEL 2: SESUDAH FIX ===== -->
+  <text x="40" y="364" font-family="sans-serif" font-size="18" font-weight="700" fill="#1f2937">SESUDAH FIX — advisory lock</text>
+  <rect x="40" y="372" width="260" height="4" fill="#16a34a" />
+
+  <text x="20" y="429" font-family="sans-serif" font-size="13" font-weight="700" fill="#1f2937">Request A</text>
+  <text x="20" y="519" font-family="sans-serif" font-size="13" font-weight="700" fill="#1f2937">Request B</text>
+
+  <!-- Row A2 -->
+  <rect x="130" y="405" width="120" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="190" y="429" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1f2937">Lock diambil</text>
+  <line x1="250" y1="425" x2="278" y2="425" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="280" y="405" width="140" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="350" y="429" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1f2937">Baca count = 1</text>
+  <line x1="420" y1="425" x2="448" y2="425" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="450" y="405" width="180" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="540" y="422" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1f2937">1 &lt; 2? ✓</text>
+  <text x="540" y="436" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#1f2937">assign_agent()</text>
+  <line x1="630" y1="425" x2="658" y2="425" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="660" y="405" width="150" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="735" y="422" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#1f2937">count → 2</text>
+  <text x="735" y="436" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#1f2937">lock dilepas</text>
+
+  <!-- Row B2: waiting block spans same time window as row A2 -->
+  <rect x="130" y="495" width="680" height="40" rx="6" fill="#e2e8f0" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5,4" />
+  <text x="470" y="519" text-anchor="middle" font-family="sans-serif" font-size="12" font-style="italic" fill="#475569">menunggu lock (diblokir sampai Request A commit &amp; lepas lock)</text>
+
+  <line x1="810" y1="515" x2="838" y2="515" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="840" y="495" width="150" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="915" y="512" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#1f2937">Lock diambil,</text>
+  <text x="915" y="526" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#1f2937">baca count = 2</text>
+
+  <line x1="990" y1="515" x2="1010" y2="515" stroke="#475569" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="1012" y="495" width="130" height="40" rx="6" fill="#f8fafc" stroke="#94a3b8" />
+  <text x="1077" y="512" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#1f2937">2 &lt; 2? ✗</text>
+  <text x="1077" y="526" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#1f2937">tetap "waiting"</text>
+
+  <!-- link A's unlock to B's resume -->
+  <line x1="735" y1="445" x2="915" y2="493" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow)" />
+
+  <!-- result -->
+  <line x1="735" y1="445" x2="500" y2="573" stroke="#16a34a" stroke-width="1.5" marker-end="url(#arrow)" />
+
+  <rect x="370" y="575" width="260" height="50" rx="6" fill="#dcfce7" stroke="#16a34a" stroke-width="1.5" />
+  <text x="500" y="596" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#166534">Agent count di Qiscus = 2</text>
+  <text x="500" y="612" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#166534">sesuai max_concurrent — Request B tetap "waiting"</text>
+</svg>
