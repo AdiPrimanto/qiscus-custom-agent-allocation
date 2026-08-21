@@ -87,6 +87,7 @@ describe('POST /webhooks/mark-as-resolved', () => {
     });
 
     const updateManySpy = vi.spyOn(prisma.assignment, 'updateMany').mockRejectedValueOnce(new Error('transient db blip'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     const response = await request(app)
       .post(`/webhooks/${env.webhookSecret}/mark-as-resolved`)
@@ -100,6 +101,9 @@ describe('POST /webhooks/mark-as-resolved', () => {
     expect(updateManySpy).toHaveBeenCalledTimes(2);
     const resolved = await prisma.assignment.findFirst({ where: { roomId: 'room-retry' } });
     expect(resolved?.status).toBe('resolved');
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('room-retry'), expect.any(Error));
+
+    errorSpy.mockRestore();
 
     updateManySpy.mockRestore();
   });
