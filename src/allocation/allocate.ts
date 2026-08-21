@@ -61,60 +61,74 @@ async function commitAssignment(
   });
 }
 
-export async function tryAssign(roomId: string): Promise<Assignment> {
+async function ensureWaitingAssignment(roomId: string): Promise<Assignment> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ALLOCATION_LOCK_KEY})`;
 
-    let assignment = await tx.assignment.findFirst({
+    const existing = await tx.assignment.findFirst({
       where: { roomId, status: { in: ['waiting', 'assigned'] } },
     });
-
-    if (!assignment) {
-      assignment = await tx.assignment.create({
-        data: { roomId, status: 'waiting' },
-      });
+    if (existing) {
+      return existing;
     }
 
-    if (assignment.status === 'assigned') {
-      return assignment;
-    }
+    return tx.assignment.create({ data: { roomId, status: 'waiting' } });
+  }, TRANSACTION_OPTIONS);
+}
 
+// Shared by tryAssign (a brand-new room) and tryAssignWaiting (reconcile
+// retrying an existing one). Always re-reads the row inside the lock instead
+// of trusting the caller's snapshot, because that snapshot can be stale by
+// the time this transaction gets its turn (see tryAssignWaiting's caller).
+async function attemptAllocation(
+  tx: Prisma.TransactionClient,
+  assignment: Assignment,
+  options: { enforceFifo: boolean },
+): Promise<Assignment> {
+  const fresh = await tx.assignment.findUnique({ where: { id: assignment.id } });
+  if (!fresh || fresh.status !== 'waiting') {
+    return fresh ?? assignment;
+  }
+
+  if (options.enforceFifo) {
     const olderWaiting = await tx.assignment.findFirst({
-      where: { status: 'waiting', createdAt: { lt: assignment.createdAt } },
+      where: { status: 'waiting', createdAt: { lt: fresh.createdAt } },
     });
     if (olderWaiting) {
-      return assignment;
+      return fresh;
     }
+  }
 
-    const chosen = await pickAgent(tx, roomId);
-    if (!chosen) {
-      return assignment;
-    }
+  const chosen = await pickAgent(tx, fresh.roomId);
+  if (!chosen) {
+    return fresh;
+  }
 
-    return commitAssignment(tx, assignment, chosen);
+  return commitAssignment(tx, fresh, chosen);
+}
+
+export async function tryAssign(roomId: string): Promise<Assignment> {
+  // Split into two transactions on purpose: creating the 'waiting' row should
+  // almost never fail, and keeping it in its own short transaction means a
+  // failure in the allocation attempt below (pickAgent/commitAssignment call
+  // out to Qiscus) can no longer roll back the room's very existence in our
+  // DB. Worst case now is it stays 'waiting' and gets retried by reconcile,
+  // instead of vanishing without a trace.
+  const assignment = await ensureWaitingAssignment(roomId);
+
+  if (assignment.status === 'assigned') {
+    return assignment;
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ALLOCATION_LOCK_KEY})`;
+    return attemptAllocation(tx, assignment, { enforceFifo: true });
   }, TRANSACTION_OPTIONS);
 }
 
 export async function tryAssignWaiting(assignment: Assignment): Promise<Assignment> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ALLOCATION_LOCK_KEY})`;
-
-    // `assignment` is a snapshot fetched by the caller (reconcile's findMany)
-    // *before* this call ever reached the lock. If another reconcile pass
-    // (the scheduler firing again before the previous pass drained, or an
-    // overlapping mark-as-resolved reconcile) already committed this same
-    // room while we were queued, that snapshot is stale — re-read the row
-    // inside the lock and bail out instead of assigning it a second time.
-    const fresh = await tx.assignment.findUnique({ where: { id: assignment.id } });
-    if (!fresh || fresh.status !== 'waiting') {
-      return fresh ?? assignment;
-    }
-
-    const chosen = await pickAgent(tx, fresh.roomId);
-    if (!chosen) {
-      return fresh;
-    }
-
-    return commitAssignment(tx, fresh, chosen);
+    return attemptAllocation(tx, assignment, { enforceFifo: false });
   }, TRANSACTION_OPTIONS);
 }

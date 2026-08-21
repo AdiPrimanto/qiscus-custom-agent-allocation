@@ -167,4 +167,17 @@ describe('tryAssign', () => {
     expect(second.status).toBe('assigned');
     expect(first.agentId).toBe(second.agentId);
   });
+
+  it('keeps the room recorded as waiting even if the allocation attempt itself errors out', async () => {
+    nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query({ room_id: 'room-fail-mid' })
+      .replyWithError('connection reset');
+
+    await expect(tryAssign('room-fail-mid')).rejects.toThrow();
+
+    const assignment = await prisma.assignment.findFirst({ where: { roomId: 'room-fail-mid' } });
+    expect(assignment).not.toBeNull();
+    expect(assignment?.status).toBe('waiting');
+  });
 });
