@@ -1,10 +1,12 @@
 import { prisma } from '../db/prisma';
 import { getAvailableAgents } from '../qiscus/client';
 
-// Long enough that a brief disconnect (flaky wifi, a bathroom break) doesn't
-// yank a chat away from an agent mid-conversation; short enough that a
-// genuinely offline agent's rooms don't sit stuck for long.
-const OFFLINE_GRACE_PERIOD_MS = 2 * 60 * 1000;
+// Long enough that a brief disconnect (flaky wifi, a page reload) doesn't
+// yank a chat away from an agent mid-conversation, and comfortably above the
+// scheduler's own polling interval (10s) so this is a real debounce window
+// rather than "reassign on the next tick"; short enough that a genuinely
+// offline agent's rooms don't sit stuck for long.
+const OFFLINE_GRACE_PERIOD_MS = 45 * 1000;
 
 // Sweeps agents currently holding an `assigned` room and checks whether
 // Qiscus still considers them online. There's no "list all agents" endpoint
