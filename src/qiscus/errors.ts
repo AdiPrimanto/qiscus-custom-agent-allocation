@@ -10,7 +10,7 @@ export function describeApiError(error: unknown): unknown {
       message: error.message,
       url: error.config?.url,
       status: error.response?.status,
-      data: error.response?.data,
+      data: JSON.stringify(error.response?.data),
     };
   }
   return error;

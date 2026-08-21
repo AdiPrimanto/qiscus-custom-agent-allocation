@@ -18,7 +18,7 @@ describe('describeApiError', () => {
 
     expect(described).toMatchObject({
       status: 400,
-      data: { errors: ['room already assigned'] },
+      data: JSON.stringify({ errors: ['room already assigned'] }),
       url: 'https://example.com/thing',
     });
   });
