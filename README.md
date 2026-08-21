@@ -42,10 +42,12 @@ Each agent's `max_concurrent` defaults to `MAX_CONCURRENT_DEFAULT` (2) the first
 
 ```bash
 docker compose exec postgres psql -U postgres -d qiscus_agent_allocation \
-  -c "UPDATE agents SET max_concurrent = 5 WHERE email = 'agent@example.com';"
+  -c "UPDATE agents SET max_concurrent = 5 WHERE qiscus_agent_id = 12345;"
 ```
 
 (Against the deployed database, swap the `docker compose exec` prefix for `psql "$DATABASE_URL"` using the Render Postgres instance's External Database URL.)
+
+Filter by `qiscus_agent_id`, not `email` — that's the actual identity key (`@unique` in the schema). An agent removed and recreated in Qiscus gets a new `qiscus_agent_id`, but the old row's `email` stays in the table (nothing deletes it), so if the new agent reuses the same email, `WHERE email = ...` matches both rows instead of just the one you meant. `SELECT id, qiscus_agent_id, name, email FROM agents;` first if you need to find the right id.
 
 ## How it works
 
