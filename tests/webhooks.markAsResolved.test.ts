@@ -1,4 +1,4 @@
-import { afterAll, afterEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import { env } from '../src/config/env';
 import { prisma } from '../src/db/prisma';
@@ -78,5 +78,29 @@ describe('POST /webhooks/mark-as-resolved', () => {
     const assignment = await prisma.assignment.findFirst({ where: { roomId: '1961380' } });
     expect(assignment?.status).toBe('assigned');
     expect(assignment?.resolvedAt).toBeNull();
+  });
+
+  it('retries a transient updateMany failure instead of failing the whole request', async () => {
+    const agent = await prisma.agent.create({ data: { qiscusAgentId: 199, name: 'Dewi', email: 'retry@mail.com', maxConcurrent: 2 } });
+    await prisma.assignment.create({
+      data: { roomId: 'room-retry', agentId: agent.id, status: 'assigned', assignedAt: new Date() },
+    });
+
+    const updateManySpy = vi.spyOn(prisma.assignment, 'updateMany').mockRejectedValueOnce(new Error('transient db blip'));
+
+    const response = await request(app)
+      .post(`/webhooks/${env.webhookSecret}/mark-as-resolved`)
+      .send({
+        service: { id: 1, room_id: 'room-retry', is_resolved: true, notes: null, first_comment_id: '1', last_comment_id: 1, source: 'qiscus' },
+        resolved_by: { id: 1, email: 'admin@qiscus.com', name: 'Admin', type: 'admin', is_available: true },
+        customer: { user_id: 'x@mail.com' },
+      });
+
+    expect(response.status).toBe(200);
+    expect(updateManySpy).toHaveBeenCalledTimes(2);
+    const resolved = await prisma.assignment.findFirst({ where: { roomId: 'room-retry' } });
+    expect(resolved?.status).toBe('resolved');
+
+    updateManySpy.mockRestore();
   });
 });
