@@ -1,5 +1,6 @@
 import { prisma } from '../db/prisma';
 import { tryAssignWaiting } from './allocate';
+import { describeApiError } from '../qiscus/errors';
 
 export async function reconcileWaitingAssignments(): Promise<number> {
   const waiting = await prisma.assignment.findMany({
@@ -18,7 +19,7 @@ export async function reconcileWaitingAssignments(): Promise<number> {
       // One room failing (timed-out transaction, Qiscus API hiccup, ...) should
       // not stop the rest of the batch from being reconciled — it stays
       // 'waiting' and gets retried on the next reconcile cycle.
-      console.error('reconcile: failed to assign a waiting room', { roomId: assignment.roomId, error });
+      console.error('reconcile: failed to assign a waiting room', { roomId: assignment.roomId, error: describeApiError(error) });
     }
   }
 

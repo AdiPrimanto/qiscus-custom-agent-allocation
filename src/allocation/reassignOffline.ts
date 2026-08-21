@@ -1,5 +1,6 @@
 import { prisma } from '../db/prisma';
 import { getAvailableAgents } from '../qiscus/client';
+import { describeApiError } from '../qiscus/errors';
 
 // Long enough that a brief disconnect (flaky wifi, a page reload) doesn't
 // yank a chat away from an agent mid-conversation, and comfortably above the
@@ -41,7 +42,7 @@ export async function reassignRoomsFromOfflineAgents(): Promise<number> {
       // same as offline — we can't confirm they're reachable.
       isOnline = seen?.is_available ?? false;
     } catch (error) {
-      console.error(`reassignOffline: failed to check status for agent ${agent.id}`, error);
+      console.error(`reassignOffline: failed to check status for agent ${agent.id}`, describeApiError(error));
       continue;
     }
 
