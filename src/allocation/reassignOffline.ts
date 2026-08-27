@@ -65,7 +65,12 @@ export async function reassignRoomsFromOfflineAgents(): Promise<number> {
 
     const result = await prisma.assignment.updateMany({
       where: { agentId: agent.id, status: 'assigned' },
-      data: { agentId: null, status: 'waiting' },
+      // assignedAt must go back to null here too — every other 'waiting' row
+      // has it unset (see ensureWaitingAssignment in allocate.ts), and
+      // leaving a stale value would make a room this offline agent never
+      // really finished look like it already has a wait time computed
+      // against an assignment it no longer holds.
+      data: { agentId: null, status: 'waiting', assignedAt: null },
     });
     reassignedCount += result.count;
     console.log(

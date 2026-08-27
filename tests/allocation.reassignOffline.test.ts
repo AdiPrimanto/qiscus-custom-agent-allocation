@@ -66,6 +66,11 @@ describe('reassignRoomsFromOfflineAgents', () => {
     const assignment = await prisma.assignment.findFirst({ where: { roomId: 'room-b' } });
     expect(assignment?.status).toBe('waiting');
     expect(assignment?.agentId).toBeNull();
+    // Every other 'waiting' row in the system has assignedAt: null (see
+    // ensureWaitingAssignment) — a requeued room must match that invariant,
+    // or anything computing wait time from assignedAt reads a stale value
+    // from the assignment this room no longer has.
+    expect(assignment?.assignedAt).toBeNull();
   });
 
   it('does not requeue an agent still within the grace period', async () => {
