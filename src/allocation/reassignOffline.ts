@@ -7,7 +7,7 @@ import { describeApiError } from '../qiscus/errors';
 // scheduler's own polling interval (10s) so this is a real debounce window
 // rather than "reassign on the next tick"; short enough that a genuinely
 // offline agent's rooms don't sit stuck for long.
-const OFFLINE_GRACE_PERIOD_MS = 45 * 1000;
+export const OFFLINE_GRACE_PERIOD_MS = 45 * 1000;
 
 // Sweeps agents currently holding an `assigned` room and checks whether
 // Qiscus still considers them online. There's no "list all agents" endpoint

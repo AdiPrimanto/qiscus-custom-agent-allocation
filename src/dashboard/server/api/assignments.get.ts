@@ -1,0 +1,61 @@
+import type { Prisma } from '@prisma/client';
+import { prisma } from '../utils/prisma';
+
+const PAGE_SIZE = 20;
+const VALID_STATUSES = ['waiting', 'assigned', 'resolved'] as const;
+
+export default defineEventHandler(async (event) => {
+  const query = getQuery(event);
+
+  const where: Prisma.AssignmentWhereInput = {};
+
+  if (typeof query.status === 'string' && (VALID_STATUSES as readonly string[]).includes(query.status)) {
+    where.status = query.status as (typeof VALID_STATUSES)[number];
+  }
+
+  if (typeof query.roomId === 'string' && query.roomId.trim()) {
+    where.roomId = { contains: query.roomId.trim() };
+  }
+
+  const agentId = Number(query.agentId);
+  if (query.agentId && Number.isInteger(agentId)) {
+    where.agentId = agentId;
+  }
+
+  if (typeof query.from === 'string' || typeof query.to === 'string') {
+    where.createdAt = {
+      ...(typeof query.from === 'string' && !Number.isNaN(Date.parse(query.from))
+        ? { gte: new Date(query.from) }
+        : {}),
+      ...(typeof query.to === 'string' && !Number.isNaN(Date.parse(query.to)) ? { lte: new Date(query.to) } : {}),
+    };
+  }
+
+  const page = Math.max(1, Number(query.page) || 1);
+
+  const [rows, total] = await Promise.all([
+    prisma.assignment.findMany({
+      where,
+      include: { agent: { select: { id: true, name: true } } },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * PAGE_SIZE,
+      take: PAGE_SIZE,
+    }),
+    prisma.assignment.count({ where }),
+  ]);
+
+  return {
+    data: rows.map((row) => ({
+      id: row.id,
+      roomId: row.roomId,
+      status: row.status,
+      agent: row.agent ? { id: row.agent.id, name: row.agent.name } : null,
+      createdAt: row.createdAt,
+      assignedAt: row.assignedAt,
+      resolvedAt: row.resolvedAt,
+    })),
+    page,
+    pageSize: PAGE_SIZE,
+    total,
+  };
+});

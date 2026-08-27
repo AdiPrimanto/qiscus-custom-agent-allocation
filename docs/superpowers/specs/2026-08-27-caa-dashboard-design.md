@@ -12,12 +12,14 @@ Bukan pengganti admin panel Qiscus — cuma nutupin celah yang gak ada di sana: 
 ## 2. Scope
 
 **In scope (MVP):**
+
 - Baca kondisi queue & agent (jumlah waiting, load per agent, status online/offline)
 - Edit `max_concurrent` per agent dari UI
 - Riwayat assignment per room (audit trail)
 - Flag kondisi gak normal (room nunggu kelamaan, agent offline yang masih pegang assignment)
 
 **Out of scope (gak didukung backend sekarang, butuh perubahan business logic terpisah kalau mau ditambah nanti):**
+
 - Global allocation mode (1 limit buat semua agent) — schema cuma support per-agent quota
 - Assignment rules custom (office hours, toggle online-only) — "online-only" itu fixed rule di `allocate.ts`, bukan setting
 - Custom unserved-message text — gak ada field ini di manapun
@@ -69,7 +71,7 @@ Nitro API butuh proses Node yang jalan terus (server-side), bukan static hosting
 ## 5. API Endpoints (Nitro)
 
 | Endpoint | Fungsi |
-|---|---|
+| --- | --- |
 | `GET /api/agents` | List agent + status + load |
 | `PATCH /api/agents/:id` | Update `max_concurrent` (validasi integer 1-100) |
 | `GET /api/assignments?status=&agentId=&roomId=&from=&to=&page=` | List assignment, paginated |
