@@ -28,14 +28,14 @@ describe('reconcileWaitingAssignments', () => {
       data: {
         roomId: 'room-older',
         status: 'waiting',
-        createdAt: new Date('2026-01-01T00:00:00Z'),
+        createdAt: new Date(Date.now() - 60_000),
       },
     });
     await prisma.assignment.create({
       data: {
         roomId: 'room-newer',
         status: 'waiting',
-        createdAt: new Date('2026-01-01T00:01:00Z'),
+        createdAt: new Date(),
       },
     });
 
@@ -68,14 +68,14 @@ describe('reconcileWaitingAssignments', () => {
       data: {
         roomId: 'room-fails',
         status: 'waiting',
-        createdAt: new Date('2026-01-01T00:00:00Z'),
+        createdAt: new Date(Date.now() - 60_000),
       },
     });
     await prisma.assignment.create({
       data: {
         roomId: 'room-still-works',
         status: 'waiting',
-        createdAt: new Date('2026-01-01T00:01:00Z'),
+        createdAt: new Date(),
       },
     });
 
@@ -103,5 +103,46 @@ describe('reconcileWaitingAssignments', () => {
     expect(failed?.status).toBe('waiting');
     const worked = await prisma.assignment.findFirst({ where: { roomId: 'room-still-works' } });
     expect(worked?.status).toBe('assigned');
+  });
+
+  it('gives up on a room that has been waiting past the give-up threshold, without calling Qiscus for it', async () => {
+    const stale = await prisma.assignment.create({
+      data: {
+        roomId: 'room-stale',
+        status: 'waiting',
+        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      },
+    });
+    await prisma.assignment.create({
+      data: {
+        roomId: 'room-fresh',
+        status: 'waiting',
+        createdAt: new Date(),
+      },
+    });
+
+    const staleRoomCall = nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query({ room_id: 'room-stale' })
+      .reply(200, { data: { agents: [] } });
+
+    nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query({ room_id: 'room-fresh' })
+      .reply(200, {
+        data: {
+          agents: [{ id: 42, name: 'Agent C', email: 'c@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 }],
+        },
+      });
+    nock(env.qiscusBaseUrl)
+      .post('/api/v1/admin/service/assign_agent', 'room_id=room-fresh&agent_id=42&replace_latest_agent=true')
+      .reply(200, { data: { added_agent: { id: 42, name: 'Agent C', email: 'c@mail.com', is_available: true } } });
+
+    const assignedCount = await reconcileWaitingAssignments();
+
+    expect(assignedCount).toBe(1);
+    expect(staleRoomCall.isDone()).toBe(false);
+    const staleResult = await prisma.assignment.findUnique({ where: { id: stale.id } });
+    expect(staleResult?.status).toBe('waiting');
   });
 });
