@@ -7,13 +7,14 @@
     "dev": "nuxt dev",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
-    "postinstall": "nuxt prepare"
+    "postinstall": "prisma generate --schema=../../prisma/schema.prisma && nuxt prepare"
   },
   "dependencies": {
     "@nuxt/image": "^2.1.0",
     "@nuxt/ui": "^4.11.0",
     "@nuxtjs/google-fonts": "^3.2.0",
     "@pinia/nuxt": "^1.0.2",
+    "@prisma/client": "^6.19.2",
     "@tailwindcss/vite": "^4.3.3",
     "@tiptap/core": "^3.30.5",
     "@tiptap/extension-bubble-menu": "^3.30.5",
@@ -41,5 +42,8 @@
     "typescript": "^7.0.2",
     "vue": "^3.5.41",
     "vue-router": "^5.2.0"
+  },
+  "devDependencies": {
+    "prisma": "^6.19.2"
   }
 }
