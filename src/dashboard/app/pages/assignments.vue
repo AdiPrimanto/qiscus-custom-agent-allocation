@@ -6,7 +6,23 @@
     </div>
 
     <div class="flex flex-wrap gap-2">
-      <USelect v-model="status" :items="statusOptions" placeholder="Status" class="w-40" />
+      <button
+        v-for="chip in statusChips"
+        :key="chip.value"
+        type="button"
+        class="rounded-full border px-3 py-1.5 text-sm font-medium transition-colors"
+        :class="
+          status === chip.value
+            ? 'border-primary-500 bg-primary-50 text-primary-700'
+            : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+        "
+        @click="status = chip.value"
+      >
+        {{ chip.label }} ({{ chip.count }})
+      </button>
+    </div>
+
+    <div class="flex flex-wrap gap-2">
       <USelect v-model="agentId" :items="agentOptions" placeholder="Agent" class="w-48" />
       <UInput v-model="roomId" placeholder="Cari Room ID" class="w-48" />
     </div>
@@ -14,14 +30,15 @@
     <UAlert v-if="error" color="error" title="Gagal memuat data" :description="error.message" />
 
     <UCard v-else>
-      <table class="w-full text-sm bg-white">
+      <table class="w-full text-sm">
         <thead>
           <tr class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
             <th class="py-2 pr-4">Room ID</th>
             <th class="py-2 pr-4">Agent</th>
             <th class="py-2 pr-4">Status</th>
             <th class="py-2 pr-4">Dibuat</th>
-            <th class="py-2">Selesai</th>
+            <th class="py-2 pr-4">Wait</th>
+            <th class="py-2">Handle</th>
           </tr>
         </thead>
         <tbody>
@@ -32,10 +49,15 @@
               <UBadge :color="statusColor(row.status)" variant="soft">{{ row.status }}</UBadge>
             </td>
             <td class="py-3 pr-4 tabular-nums text-gray-500">{{ formatTime(row.createdAt) }}</td>
-            <td class="py-3 tabular-nums text-gray-500">{{ row.resolvedAt ? formatTime(row.resolvedAt) : '—' }}</td>
+            <td class="py-3 pr-4 tabular-nums text-gray-500">
+              {{ row.waitTimeMs !== null ? formatDuration(row.waitTimeMs) : '—' }}
+            </td>
+            <td class="py-3 tabular-nums text-gray-500">
+              {{ row.handleTimeMs !== null ? formatDuration(row.handleTimeMs) : '—' }}
+            </td>
           </tr>
           <tr v-if="result && result.data.length === 0">
-            <td colspan="5" class="py-6 text-center text-gray-400">Gak ada assignment yang cocok filter ini.</td>
+            <td colspan="6" class="py-6 text-center text-gray-400">Gak ada assignment yang cocok filter ini.</td>
           </tr>
         </tbody>
       </table>
@@ -60,12 +82,15 @@ interface AssignmentRow {
   createdAt: string;
   assignedAt: string | null;
   resolvedAt: string | null;
+  waitTimeMs: number | null;
+  handleTimeMs: number | null;
 }
 interface AssignmentsResponse {
   data: AssignmentRow[];
   page: number;
   pageSize: number;
   total: number;
+  counts: { all: number; waiting: number; assigned: number; resolved: number };
 }
 interface AgentRow {
   id: number;
@@ -81,13 +106,6 @@ watch([status, agentId, roomId], () => {
   page.value = 1;
 });
 
-const statusOptions = [
-  { label: 'Semua status', value: '' },
-  { label: 'Waiting', value: 'waiting' },
-  { label: 'Assigned', value: 'assigned' },
-  { label: 'Resolved', value: 'resolved' },
-];
-
 const { data: agents } = await useFetch<AgentRow[]>('/api/agents');
 const agentOptions = computed(() => [
   { label: 'Semua agent', value: '' },
@@ -102,6 +120,13 @@ const query = computed(() => ({
 }));
 
 const { data: result, error } = await useFetch<AssignmentsResponse>('/api/assignments', { query, watch: [query] });
+
+const statusChips = computed(() => [
+  { label: 'Semua', value: '', count: result.value?.counts.all ?? 0 },
+  { label: 'Waiting', value: 'waiting', count: result.value?.counts.waiting ?? 0 },
+  { label: 'Assigned', value: 'assigned', count: result.value?.counts.assigned ?? 0 },
+  { label: 'Resolved', value: 'resolved', count: result.value?.counts.resolved ?? 0 },
+]);
 
 const hasNextPage = computed(() => {
   if (!result.value) return false;

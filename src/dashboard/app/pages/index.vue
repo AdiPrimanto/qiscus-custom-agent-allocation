@@ -59,10 +59,6 @@ useIntervalFn(() => refresh(), 15_000);
 
 const oldestWaitingLabel = computed(() => {
   const ms = summary.value?.oldestWaitingAgeMs;
-  if (ms === null || ms === undefined) return '—';
-  const totalSeconds = Math.round(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+  return ms === null || ms === undefined ? '—' : formatDuration(ms);
 });
 </script>

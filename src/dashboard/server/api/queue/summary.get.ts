@@ -7,7 +7,7 @@ export default defineEventHandler(async () => {
       where: { status: 'waiting' },
       orderBy: { createdAt: 'asc' },
       take: 1,
-      select: { createdAt: true },
+      select: { roomId: true, createdAt: true },
     }),
     prisma.assignment.groupBy({ by: ['status'], _count: { status: true } }),
     prisma.agent.aggregate({ _sum: { maxConcurrent: true }, _count: true }),
@@ -20,14 +20,14 @@ export default defineEventHandler(async () => {
   const oldestWaiting = waitingRooms[0]?.createdAt ?? null;
   const oldestWaitingAgeMs = oldestWaiting ? Date.now() - oldestWaiting.getTime() : null;
 
-  const countByStatus = Object.fromEntries(statusCounts.map((row) => [row.status, row._count.status]));
+  const countByStatus = Object.fromEntries(statusCounts.map((row: any) => [row.status, row._count.status]));
 
   const alerts: Array<{ type: 'waiting-stuck' | 'offline-reassign-pending'; message: string }> = [];
 
   if (oldestWaitingAgeMs !== null && oldestWaitingAgeMs >= WAITING_STUCK_THRESHOLD_MS) {
     alerts.push({
       type: 'waiting-stuck',
-      message: `Room menunggu ${Math.round(oldestWaitingAgeMs / 1000)}s — belum ada agent yang kosong di bawah kuota.`,
+      message: `Room ${waitingRooms[0].roomId} menunggu ${formatDuration(oldestWaitingAgeMs)} - belum ada agent yang kosong di bawah kuota.`,
     });
   }
 
@@ -35,7 +35,7 @@ export default defineEventHandler(async () => {
     const offlineDurationMs = Date.now() - (agent.offlineSince as Date).getTime();
     alerts.push({
       type: 'offline-reassign-pending',
-      message: `Agent ${agent.name} offline ${Math.round(offlineDurationMs / 1000)}s, masih pegang chat assigned — reassign ${
+      message: `Agent ${agent.name} offline ${formatDuration(offlineDurationMs)}, masih pegang chat assigned — reassign ${
         offlineDurationMs >= OFFLINE_GRACE_PERIOD_MS ? 'akan jalan di reconcile berikutnya' : 'pending grace period'
       }.`,
     });

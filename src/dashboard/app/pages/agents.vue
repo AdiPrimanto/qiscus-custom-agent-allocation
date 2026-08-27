@@ -26,7 +26,7 @@
             </td>
             <td class="py-3 pr-4">
               <UBadge v-if="agent.status === 'offline'" color="error" variant="soft">
-                Offline{{ agent.offlineDurationMs !== null ? ` · ${Math.round(agent.offlineDurationMs / 1000)}s` : '' }}
+                Offline{{ agent.offlineDurationMs !== null ? ` · ${formatDuration(agent.offlineDurationMs)}` : '' }}
               </UBadge>
               <UBadge v-else color="primary" variant="soft">Active</UBadge>
             </td>

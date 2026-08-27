@@ -33,7 +33,12 @@ export default defineEventHandler(async (event) => {
 
   const page = Math.max(1, Number(query.page) || 1);
 
-  const [rows, total] = await Promise.all([
+  // Counts per status ignore the status filter itself (but keep room/agent/date
+  // filters) — that's what makes the chips useful for switching status without
+  // losing the rest of the filter.
+  const { status: _status, ...whereForCounts } = where;
+
+  const [rows, total, statusCounts] = await Promise.all([
     prisma.assignment.findMany({
       where,
       include: { agent: { select: { id: true, name: true } } },
@@ -42,7 +47,10 @@ export default defineEventHandler(async (event) => {
       take: PAGE_SIZE,
     }),
     prisma.assignment.count({ where }),
+    prisma.assignment.groupBy({ by: ['status'], where: whereForCounts, _count: { status: true } }),
   ]);
+
+  const countByStatus = Object.fromEntries(statusCounts.map((row) => [row.status, row._count.status]));
 
   return {
     data: rows.map((row) => ({
@@ -53,9 +61,17 @@ export default defineEventHandler(async (event) => {
       createdAt: row.createdAt,
       assignedAt: row.assignedAt,
       resolvedAt: row.resolvedAt,
+      waitTimeMs: row.assignedAt ? row.assignedAt.getTime() - row.createdAt.getTime() : null,
+      handleTimeMs: row.assignedAt && row.resolvedAt ? row.resolvedAt.getTime() - row.assignedAt.getTime() : null,
     })),
     page,
     pageSize: PAGE_SIZE,
     total,
+    counts: {
+      all: (countByStatus.waiting ?? 0) + (countByStatus.assigned ?? 0) + (countByStatus.resolved ?? 0),
+      waiting: countByStatus.waiting ?? 0,
+      assigned: countByStatus.assigned ?? 0,
+      resolved: countByStatus.resolved ?? 0,
+    },
   };
 });
