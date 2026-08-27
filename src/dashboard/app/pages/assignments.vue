@@ -115,7 +115,7 @@ interface AgentRow {
 }
 
 const status = ref('');
-const agentId = ref('');
+const agentId = ref('all');
 const roomId = ref('');
 const from = ref('');
 const to = ref('');
@@ -127,13 +127,13 @@ watch([status, agentId, roomId, from, to], () => {
 
 const { data: agents } = await useFetch<AgentRow[]>('/api/agents');
 const agentOptions = computed(() => [
-  { label: 'Semua agent', value: '' },
+  { label: 'Semua agent', value: 'all' },
   ...(agents.value ?? []).map((a) => ({ label: a.name, value: String(a.id) })),
 ]);
 
 const query = computed(() => ({
   status: status.value || undefined,
-  agentId: agentId.value || undefined,
+  agentId: agentId.value !== 'all' ? agentId.value : undefined,
   roomId: roomId.value || undefined,
   from: from.value || undefined,
   to: to.value || undefined,
