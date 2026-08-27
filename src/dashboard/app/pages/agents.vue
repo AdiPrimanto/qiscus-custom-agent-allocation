@@ -15,6 +15,7 @@
             <th class="py-2 pr-4">Status</th>
             <th class="py-2 pr-4">Load</th>
             <th class="py-2 pr-4">Kuota</th>
+            <th class="py-2 pr-4">Source</th>
             <th class="py-2"></th>
           </tr>
         </thead>
@@ -25,14 +26,22 @@
               <div class="text-xs text-gray-500">{{ agent.email }}</div>
             </td>
             <td class="py-3 pr-4">
-              <UBadge v-if="agent.status === 'offline'" color="error" variant="soft">
-                Offline{{ agent.offlineDurationMs !== null ? ` · ${formatDuration(agent.offlineDurationMs)}` : '' }}
-              </UBadge>
-              <UBadge v-else color="primary" variant="soft">Active</UBadge>
+              <div class="flex flex-wrap gap-1">
+                <UBadge v-if="agent.status === 'offline'" color="error" variant="soft">
+                  Offline{{ agent.offlineDurationMs !== null ? ` · ${formatDuration(agent.offlineDurationMs)}` : '' }}
+                </UBadge>
+                <UBadge v-else color="primary" variant="soft">Active</UBadge>
+                <UBadge v-if="agent.maxConcurrent === 0" color="neutral" variant="soft">Paused</UBadge>
+              </div>
             </td>
             <td class="py-3 pr-4 tabular-nums">{{ agent.currentLoad }} / {{ agent.maxConcurrent }}</td>
             <td class="py-3 pr-4">
-              <UInputNumber v-model="drafts[agent.id]" :min="1" :max="100" class="w-24" />
+              <UInputNumber v-model="drafts[agent.id]" :min="0" :max="100" class="w-24" />
+            </td>
+            <td class="py-3 pr-4">
+              <UBadge :color="agent.source === 'override' ? 'primary' : 'neutral'" variant="subtle">
+                {{ agent.source === 'override' ? 'Override' : 'Default' }}
+              </UBadge>
             </td>
             <td class="py-3">
               <UButton
@@ -58,6 +67,7 @@ interface AgentRow {
   name: string;
   email: string;
   maxConcurrent: number;
+  source: 'default' | 'override';
   currentLoad: number;
   status: 'offline' | 'active';
   offlineDurationMs: number | null;

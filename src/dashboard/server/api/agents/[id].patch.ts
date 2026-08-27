@@ -1,6 +1,9 @@
 import { prisma } from '../../utils/prisma';
 
-const MIN_MAX_CONCURRENT = 1;
+// 0 is a valid quota — it's how an agent is "paused" (see allocate.ts:
+// effectiveCount >= maxConcurrent excludes them from every eligibility check,
+// no separate pause flag needed).
+const MIN_MAX_CONCURRENT = 0;
 const MAX_MAX_CONCURRENT = 100;
 
 export default defineEventHandler(async (event) => {

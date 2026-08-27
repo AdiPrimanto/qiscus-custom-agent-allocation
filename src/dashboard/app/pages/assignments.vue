@@ -22,9 +22,18 @@
       </button>
     </div>
 
-    <div class="flex flex-wrap gap-2">
+    <div class="flex flex-wrap items-center gap-2">
       <USelect v-model="agentId" :items="agentOptions" placeholder="Agent" class="w-48" />
       <UInput v-model="roomId" placeholder="Cari Room ID" class="w-48" />
+      <label class="flex items-center gap-1.5 text-sm text-gray-500">
+        Dari
+        <input v-model="from" type="date" class="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700" />
+      </label>
+      <label class="flex items-center gap-1.5 text-sm text-gray-500">
+        Sampai
+        <input v-model="to" type="date" class="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700" />
+      </label>
+      <UButton v-if="from || to" size="xs" variant="ghost" color="neutral" @click="from = ''; to = ''">Reset tanggal</UButton>
     </div>
 
     <UAlert v-if="error" color="error" title="Gagal memuat data" :description="error.message" />
@@ -100,9 +109,11 @@ interface AgentRow {
 const status = ref('');
 const agentId = ref('');
 const roomId = ref('');
+const from = ref('');
+const to = ref('');
 const page = ref(1);
 
-watch([status, agentId, roomId], () => {
+watch([status, agentId, roomId, from, to], () => {
   page.value = 1;
 });
 
@@ -116,6 +127,8 @@ const query = computed(() => ({
   status: status.value || undefined,
   agentId: agentId.value || undefined,
   roomId: roomId.value || undefined,
+  from: from.value || undefined,
+  to: to.value || undefined,
   page: page.value,
 }));
 

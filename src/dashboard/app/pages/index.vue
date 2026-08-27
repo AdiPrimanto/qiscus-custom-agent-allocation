@@ -20,7 +20,7 @@
       </UCard>
       <UCard>
         <div class="text-2xl font-bold text-gray-900 bg-white">{{ oldestWaitingLabel }}</div>
-        <div class="text-xs uppercase tracking-wide text-gray-500">Waiting Tertua</div>
+        <div class="text-xs uppercase tracking-wide text-gray-500">Waiting Terlama</div>
       </UCard>
     </div>
 
@@ -39,6 +39,70 @@
       <USkeleton class="h-24 w-full" />
     </UCard>
     <UAlert v-else-if="error" color="error" title="Gagal memuat data" :description="error.message" />
+
+    <div class="mt-4 flex flex-col gap-4 border-t border-gray-100 pt-6">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-bold text-gray-900">Aktivitas</h2>
+        <div class="flex gap-1">
+          <button
+            v-for="preset in rangePresets"
+            :key="preset.value"
+            type="button"
+            class="rounded-full border px-3 py-1.5 text-sm font-medium transition-colors"
+            :class="
+              range === preset.value
+                ? 'border-primary-500 bg-primary-50 text-primary-700'
+                : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+            "
+            @click="range = preset.value"
+          >
+            {{ preset.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <UCard>
+          <div class="text-2xl font-bold text-gray-900">{{ analytics?.totalChats ?? '—' }}</div>
+          <div class="text-xs uppercase tracking-wide text-gray-500">Total Chat</div>
+        </UCard>
+        <UCard>
+          <div class="text-2xl font-bold text-gray-900">{{ avgWaitLabel }}</div>
+          <div class="text-xs uppercase tracking-wide text-gray-500">Avg Wait</div>
+        </UCard>
+        <UCard>
+          <div class="text-2xl font-bold text-gray-900">{{ avgHandleLabel }}</div>
+          <div class="text-xs uppercase tracking-wide text-gray-500">Avg Handle</div>
+        </UCard>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <UCard>
+          <h3 class="mb-3 text-sm font-semibold text-gray-700">Chat masuk</h3>
+          <BarChart
+            v-if="analytics?.chatPerBucket.length"
+            :data="analytics.chatPerBucket"
+            :height="220"
+            x-axis="bucket"
+            :y-axis="['count']"
+            :categories="{ count: { name: 'Chat', color: '#27b198' } }"
+          />
+          <p v-else class="py-10 text-center text-sm text-gray-400">Gak ada chat di rentang ini.</p>
+        </UCard>
+        <UCard>
+          <h3 class="mb-3 text-sm font-semibold text-gray-700">Volume per agent</h3>
+          <BarChart
+            v-if="analytics?.volumePerAgent.length"
+            :data="analytics.volumePerAgent"
+            :height="220"
+            x-axis="agentName"
+            :y-axis="['count']"
+            :categories="{ count: { name: 'Chat', color: '#27b198' } }"
+          />
+          <p v-else class="py-10 text-center text-sm text-gray-400">Gak ada chat di rentang ini.</p>
+        </UCard>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -61,4 +125,31 @@ const oldestWaitingLabel = computed(() => {
   const ms = summary.value?.oldestWaitingAgeMs;
   return ms === null || ms === undefined ? '—' : formatDuration(ms);
 });
+
+interface AnalyticsSummary {
+  totalChats: number;
+  avgWaitMs: number | null;
+  avgHandleMs: number | null;
+  chatPerBucket: Array<{ bucket: string; count: number }>;
+  volumePerAgent: Array<{ agentName: string; count: number }>;
+}
+
+const rangePresets = [
+  { label: 'Hari ini', value: 'today' },
+  { label: '7 hari', value: '7d' },
+  { label: '30 hari', value: '30d' },
+] as const;
+const range = ref<'today' | '7d' | '30d'>('today');
+
+const { data: analytics } = await useFetch<AnalyticsSummary>('/api/analytics/summary', {
+  query: computed(() => ({ range: range.value })),
+  watch: [range],
+});
+
+const avgWaitLabel = computed(() =>
+  analytics.value?.avgWaitMs != null ? formatDuration(analytics.value.avgWaitMs) : '—',
+);
+const avgHandleLabel = computed(() =>
+  analytics.value?.avgHandleMs != null ? formatDuration(analytics.value.avgHandleMs) : '—',
+);
 </script>

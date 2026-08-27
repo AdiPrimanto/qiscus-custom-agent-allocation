@@ -8,7 +8,9 @@ import { OFFLINE_GRACE_PERIOD_MS } from '../../utils/constants';
 // they're online. Report the two states we can actually back with data.
 type AgentStatus = 'offline' | 'active';
 
-export default defineEventHandler(async () => {
+export default defineEventHandler(async (event) => {
+  const { maxConcurrentDefault } = useRuntimeConfig(event);
+
   const agents = await prisma.agent.findMany({
     orderBy: { name: 'asc' },
     include: {
@@ -26,6 +28,11 @@ export default defineEventHandler(async () => {
       name: agent.name,
       email: agent.email,
       maxConcurrent: agent.maxConcurrent,
+      // Heuristic, not tracked state: we don't record whether a value was
+      // ever manually changed, just whether it currently matches the
+      // service's default. A deliberate override that happens to equal the
+      // default reads as "Default" here — acceptable for a display label.
+      source: agent.maxConcurrent === maxConcurrentDefault ? 'default' : 'override',
       currentLoad: agent._count.assignments,
       status,
       offlineDurationMs,
