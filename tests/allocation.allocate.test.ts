@@ -39,6 +39,17 @@ describe('tryAssign', () => {
     expect(result.agentId).toBe(agent?.id);
   });
 
+  it('stores the customer name on the assignment when one is given', async () => {
+    nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query({ room_id: 'room-with-name' })
+      .reply(200, { data: { agents: [] } });
+
+    const result = await tryAssign('room-with-name', 'Budi Pelanggan');
+
+    expect(result.customerName).toBe('Budi Pelanggan');
+  });
+
   it('ignores offline and over-quota agents, leaving the assignment waiting', async () => {
     nock(env.qiscusBaseUrl)
       .get('/api/v2/admin/service/available_agents')

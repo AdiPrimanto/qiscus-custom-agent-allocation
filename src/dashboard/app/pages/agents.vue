@@ -23,11 +23,6 @@
               </UTooltip>
             </th>
             <th class="py-2 pr-4">Kuota</th>
-            <th class="py-2 pr-4">
-              <UTooltip text="Default = kuota masih sama kayak setting sistem. Override = beda dari default. Dibandingin ke nilai sekarang, bukan histori — balikin ke angka default juga kebaca Default lagi.">
-                <span class="cursor-help border-b border-dotted border-gray-400">Source</span>
-              </UTooltip>
-            </th>
             <th class="py-2"></th>
           </tr>
         </thead>
@@ -54,11 +49,6 @@
             <td class="py-3 pr-4 tabular-nums">{{ agent.currentLoad }} / {{ agent.maxConcurrent }}</td>
             <td class="py-3 pr-4">
               <UInputNumber v-model="drafts[agent.id]" :min="0" :max="100" class="w-24" />
-            </td>
-            <td class="py-3 pr-4">
-              <UBadge :color="agent.source === 'override' ? 'primary' : 'neutral'" variant="subtle">
-                {{ agent.source === 'override' ? 'Override' : 'Default' }}
-              </UBadge>
             </td>
             <td class="py-3">
               <UButton

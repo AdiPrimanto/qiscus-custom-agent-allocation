@@ -25,6 +25,7 @@
     <div class="flex flex-wrap items-center gap-2">
       <USelect v-model="agentId" :items="agentOptions" placeholder="Agent" class="w-48" />
       <UInput v-model="roomId" placeholder="Cari Room ID" class="w-48" />
+      <UInput v-model="customer" placeholder="Cari nama customer" class="w-56" />
       <label class="flex items-center gap-1.5 text-sm text-gray-500">
         Dari
         <input v-model="from" type="date" class="rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-700" />
@@ -43,6 +44,7 @@
         <thead>
           <tr class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
             <th class="py-2 pr-4">Room ID</th>
+            <th class="py-2 pr-4">Customer</th>
             <th class="py-2 pr-4">Agent</th>
             <th class="py-2 pr-4">Status</th>
             <th class="py-2 pr-4">Dibuat</th>
@@ -61,6 +63,7 @@
         <tbody>
           <tr v-for="row in result?.data" :key="row.id" class="border-b border-gray-100 last:border-0">
             <td class="py-3 pr-4 font-mono">{{ row.roomId }}</td>
+            <td class="py-3 pr-4">{{ row.customerName ?? '—' }}</td>
             <td class="py-3 pr-4">{{ row.agent?.name ?? '—' }}</td>
             <td class="py-3 pr-4">
               <UBadge :color="statusColor(row.status)" variant="soft">{{ row.status }}</UBadge>
@@ -74,7 +77,7 @@
             </td>
           </tr>
           <tr v-if="result && result.data.length === 0">
-            <td colspan="6" class="py-6 text-center text-gray-400">Gak ada assignment yang cocok filter ini.</td>
+            <td colspan="7" class="py-6 text-center text-gray-400">Gak ada assignment yang cocok filter ini.</td>
           </tr>
         </tbody>
       </table>
@@ -94,6 +97,7 @@
 interface AssignmentRow {
   id: number;
   roomId: string;
+  customerName: string | null;
   status: 'waiting' | 'assigned' | 'resolved';
   agent: { id: number; name: string } | null;
   createdAt: string;
@@ -117,11 +121,12 @@ interface AgentRow {
 const status = ref('');
 const agentId = ref('all');
 const roomId = ref('');
+const customer = ref('');
 const from = ref('');
 const to = ref('');
 const page = ref(1);
 
-watch([status, agentId, roomId, from, to], () => {
+watch([status, agentId, roomId, customer, from, to], () => {
   page.value = 1;
 });
 
@@ -135,6 +140,7 @@ const query = computed(() => ({
   status: status.value || undefined,
   agentId: agentId.value !== 'all' ? agentId.value : undefined,
   roomId: roomId.value || undefined,
+  customer: customer.value || undefined,
   from: from.value || undefined,
   to: to.value || undefined,
   page: page.value,

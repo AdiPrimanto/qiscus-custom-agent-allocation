@@ -17,6 +17,10 @@ export default defineEventHandler(async (event) => {
     where.roomId = { contains: query.roomId.trim() };
   }
 
+  if (typeof query.customer === 'string' && query.customer.trim()) {
+    where.customerName = { contains: query.customer.trim(), mode: 'insensitive' };
+  }
+
   const agentId = Number(query.agentId);
   if (query.agentId && Number.isInteger(agentId)) {
     where.agentId = agentId;
@@ -56,6 +60,7 @@ export default defineEventHandler(async (event) => {
     data: rows.map((row) => ({
       id: row.id,
       roomId: row.roomId,
+      customerName: row.customerName,
       status: row.status,
       agent: row.agent ? { id: row.agent.id, name: row.agent.name } : null,
       createdAt: row.createdAt,

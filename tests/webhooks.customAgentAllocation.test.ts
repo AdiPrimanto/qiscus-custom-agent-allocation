@@ -55,6 +55,7 @@ describe('POST /webhooks/custom-agent-allocation', () => {
     expect(response.status).toBe(200);
     const assignment = await prisma.assignment.findFirst({ where: { roomId: '1905692' } });
     expect(assignment?.status).toBe('assigned');
+    expect(assignment?.customerName).toBe('sudah');
   });
 
   it('rejects a payload missing room_id', async () => {

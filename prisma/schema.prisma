@@ -33,6 +33,12 @@ model Assignment {
   agentId            Int?             @map("agent_id")
   agent              Agent?           @relation(fields: [agentId], references: [id])
   status             AssignmentStatus @default(waiting)
+  // Written once from the webhook's `name` field at creation, never updated
+  // afterward — lets the dashboard search/filter by customer. Re-introduced
+  // deliberately after being dropped as unused PII (see migration
+  // 20260820053603, which dropped a customer *email* column); now has a
+  // real consumer, so the trade-off was revisited.
+  customerName       String?          @map("customer_name")
   createdAt          DateTime         @default(now()) @map("created_at")
   assignedAt         DateTime?        @map("assigned_at")
   resolvedAt         DateTime?        @map("resolved_at")

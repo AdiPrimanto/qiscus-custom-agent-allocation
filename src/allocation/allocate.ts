@@ -61,7 +61,7 @@ async function commitAssignment(
   });
 }
 
-async function ensureWaitingAssignment(roomId: string): Promise<Assignment> {
+async function ensureWaitingAssignment(roomId: string, customerName?: string): Promise<Assignment> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(${ALLOCATION_LOCK_KEY})`;
 
@@ -72,7 +72,7 @@ async function ensureWaitingAssignment(roomId: string): Promise<Assignment> {
       return existing;
     }
 
-    return tx.assignment.create({ data: { roomId, status: 'waiting' } });
+    return tx.assignment.create({ data: { roomId, status: 'waiting', customerName } });
   }, TRANSACTION_OPTIONS);
 }
 
@@ -107,14 +107,14 @@ async function attemptAllocation(
   return commitAssignment(tx, fresh, chosen);
 }
 
-export async function tryAssign(roomId: string): Promise<Assignment> {
+export async function tryAssign(roomId: string, customerName?: string): Promise<Assignment> {
   // Split into two transactions on purpose: creating the 'waiting' row should
   // almost never fail, and keeping it in its own short transaction means a
   // failure in the allocation attempt below (pickAgent/commitAssignment call
   // out to Qiscus) can no longer roll back the room's very existence in our
   // DB. Worst case now is it stays 'waiting' and gets retried by reconcile,
   // instead of vanishing without a trace.
-  const assignment = await ensureWaitingAssignment(roomId);
+  const assignment = await ensureWaitingAssignment(roomId, customerName);
 
   if (assignment.status === 'assigned') {
     return assignment;
