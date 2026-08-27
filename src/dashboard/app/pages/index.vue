@@ -19,8 +19,8 @@
         <div class="text-xs uppercase tracking-wide text-gray-500">Room Assigned</div>
       </UCard>
       <UCard>
-        <div class="text-2xl font-bold text-gray-900 bg-white">{{ oldestWaitingLabel }}</div>
-        <UTooltip text="Umur room waiting yang paling lama nunggu di antrian sekarang.">
+        <div class="text-2xl font-bold bg-white" :class="oldestWaitingColorClass">{{ oldestWaitingLabel }}</div>
+        <UTooltip :text="waitingTerlamaTooltip">
           <div class="w-fit cursor-help border-b border-dotted border-gray-400 text-xs uppercase tracking-wide text-gray-500">
             Waiting Terlama
           </div>
@@ -126,6 +126,7 @@ interface QueueSummary {
   oldestWaitingAgeMs: number | null;
   totalAgents: number;
   totalCapacity: number;
+  waitingStuckThresholdMs: number;
   alerts: Array<{ type: 'waiting-stuck' | 'offline-reassign-pending'; message: string }>;
 }
 
@@ -136,6 +137,26 @@ useIntervalFn(() => refresh(), 15_000);
 const oldestWaitingLabel = computed(() => {
   const ms = summary.value?.oldestWaitingAgeMs;
   return ms === null || ms === undefined ? '—' : formatDuration(ms);
+});
+
+// Below 80% of the alert threshold: normal. 80%-100%: approaching, so the
+// number itself starts signaling before the alert box appears — no more
+// silent jump from "nothing shown" straight to a full alert. At/past 100%
+// matches the alert's own color.
+const oldestWaitingColorClass = computed(() => {
+  const ms = summary.value?.oldestWaitingAgeMs;
+  const threshold = summary.value?.waitingStuckThresholdMs;
+  if (ms === null || ms === undefined || !threshold) return 'text-gray-900';
+  const ratio = ms / threshold;
+  if (ratio >= 1) return 'text-red-600';
+  if (ratio >= 0.8) return 'text-amber-600';
+  return 'text-gray-900';
+});
+
+const waitingTerlamaTooltip = computed(() => {
+  const threshold = summary.value?.waitingStuckThresholdMs;
+  const base = 'Umur room waiting yang paling lama nunggu di antrian sekarang.';
+  return threshold ? `${base} Alert muncul kalau lebih dari ${formatDuration(threshold)}.` : base;
 });
 
 interface AnalyticsSummary {

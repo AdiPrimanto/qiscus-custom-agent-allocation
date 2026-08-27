@@ -50,6 +50,7 @@ export default defineEventHandler(async () => {
     oldestWaitingAgeMs,
     totalAgents: agentTotals._count,
     totalCapacity: agentTotals._sum.maxConcurrent ?? 0,
+    waitingStuckThresholdMs: WAITING_STUCK_THRESHOLD_MS,
     alerts,
   };
 });
