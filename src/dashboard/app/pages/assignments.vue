@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-6">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">Assignments</h1>
-      <p class="text-gray-500">Riwayat room — waiting, assigned, resolved.</p>
+      <p class="text-gray-500">Riwayat room: waiting, assigned, resolved.</p>
     </div>
 
     <div class="flex flex-wrap gap-2">
@@ -14,7 +14,7 @@
     <UAlert v-if="error" color="error" title="Gagal memuat data" :description="error.message" />
 
     <UCard v-else>
-      <table class="w-full text-sm">
+      <table class="w-full text-sm bg-white">
         <thead>
           <tr class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
             <th class="py-2 pr-4">Room ID</th>

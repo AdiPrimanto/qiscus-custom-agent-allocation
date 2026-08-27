@@ -9,6 +9,11 @@ export default defineNuxtConfig({
     // NUXT_DASHBOARD_PASSWORD — required, see server/middleware/auth.ts
     dashboardPassword: '',
   },
+  // Light-only — no dark mode designed for this app, but @nuxt/ui otherwise
+  // auto-follows the OS/browser prefers-color-scheme via @nuxtjs/color-mode.
+  ui: {
+    colorMode: false,
+  },
   vite: {
     plugins: [
       tailwindcss(),

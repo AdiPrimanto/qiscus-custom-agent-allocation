@@ -7,19 +7,19 @@
 
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
       <UCard>
-        <div class="text-2xl font-bold text-gray-900">{{ summary?.totalAgents ?? '—' }}</div>
+        <div class="text-2xl font-bold text-gray-900 bg-white">{{ summary?.totalAgents ?? '—' }}</div>
         <div class="text-xs uppercase tracking-wide text-gray-500">Total Agent</div>
       </UCard>
       <UCard>
-        <div class="text-2xl font-bold text-gray-900">{{ summary?.waitingCount ?? '—' }}</div>
+        <div class="text-2xl font-bold text-gray-900 bg-white">{{ summary?.waitingCount ?? '—' }}</div>
         <div class="text-xs uppercase tracking-wide text-gray-500">Room Waiting</div>
       </UCard>
       <UCard>
-        <div class="text-2xl font-bold text-gray-900">{{ summary?.assignedCount ?? '—' }}</div>
+        <div class="text-2xl font-bold text-gray-900 bg-white">{{ summary?.assignedCount ?? '—' }}</div>
         <div class="text-xs uppercase tracking-wide text-gray-500">Room Assigned</div>
       </UCard>
       <UCard>
-        <div class="text-2xl font-bold text-gray-900">{{ oldestWaitingLabel }}</div>
+        <div class="text-2xl font-bold text-gray-900 bg-white">{{ oldestWaitingLabel }}</div>
         <div class="text-xs uppercase tracking-wide text-gray-500">Waiting Tertua</div>
       </UCard>
     </div>
