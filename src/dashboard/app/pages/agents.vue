@@ -12,10 +12,22 @@
         <thead>
           <tr class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
             <th class="py-2 pr-4">Agent</th>
-            <th class="py-2 pr-4">Status</th>
-            <th class="py-2 pr-4">Load</th>
+            <th class="py-2 pr-4">
+              <UTooltip text="Active = gak kedeteksi offline, bukan konfirmasi online. Agent yang lagi idle (gak pegang chat) gak pernah dicek langsung ke Qiscus.">
+                <span class="cursor-help border-b border-dotted border-gray-400">Status</span>
+              </UTooltip>
+            </th>
+            <th class="py-2 pr-4">
+              <UTooltip text="Chat yang lagi ditangani sekarang / kuota maksimal.">
+                <span class="cursor-help border-b border-dotted border-gray-400">Load</span>
+              </UTooltip>
+            </th>
             <th class="py-2 pr-4">Kuota</th>
-            <th class="py-2 pr-4">Source</th>
+            <th class="py-2 pr-4">
+              <UTooltip text="Default = kuota masih sama kayak setting sistem. Override = beda dari default. Dibandingin ke nilai sekarang, bukan histori — balikin ke angka default juga kebaca Default lagi.">
+                <span class="cursor-help border-b border-dotted border-gray-400">Source</span>
+              </UTooltip>
+            </th>
             <th class="py-2"></th>
           </tr>
         </thead>
@@ -31,7 +43,12 @@
                   Offline{{ agent.offlineDurationMs !== null ? ` · ${formatDuration(agent.offlineDurationMs)}` : '' }}
                 </UBadge>
                 <UBadge v-else color="primary" variant="soft">Active</UBadge>
-                <UBadge v-if="agent.maxConcurrent === 0" color="neutral" variant="soft">Paused</UBadge>
+                <UTooltip
+                  v-if="agent.maxConcurrent === 0"
+                  text="Kuota 0 — agent ini gak akan dapet chat baru sampai kuotanya dinaikin lagi."
+                >
+                  <UBadge color="neutral" variant="soft" class="cursor-help">Paused</UBadge>
+                </UTooltip>
               </div>
             </td>
             <td class="py-3 pr-4 tabular-nums">{{ agent.currentLoad }} / {{ agent.maxConcurrent }}</td>

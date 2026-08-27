@@ -25,9 +25,11 @@ export default defineEventHandler(async () => {
   const alerts: Array<{ type: 'waiting-stuck' | 'offline-reassign-pending'; message: string }> = [];
 
   if (oldestWaitingAgeMs !== null && oldestWaitingAgeMs >= WAITING_STUCK_THRESHOLD_MS) {
+    const waitingCount = countByStatus.waiting ?? 0;
+    const othersNote = waitingCount > 1 ? ` (dan ${waitingCount - 1} room lain nunggu)` : '';
     alerts.push({
       type: 'waiting-stuck',
-      message: `Room ${waitingRooms[0].roomId} menunggu ${formatDuration(oldestWaitingAgeMs)} - belum ada agent yang kosong di bawah kuota.`,
+      message: `Room ${waitingRooms[0].roomId} menunggu ${formatDuration(oldestWaitingAgeMs)}${othersNote} — belum ada agent yang kosong di bawah kuota.`,
     });
   }
 

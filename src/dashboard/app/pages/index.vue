@@ -20,7 +20,11 @@
       </UCard>
       <UCard>
         <div class="text-2xl font-bold text-gray-900 bg-white">{{ oldestWaitingLabel }}</div>
-        <div class="text-xs uppercase tracking-wide text-gray-500">Waiting Terlama</div>
+        <UTooltip text="Umur room waiting yang paling lama nunggu di antrian sekarang.">
+          <div class="w-fit cursor-help border-b border-dotted border-gray-400 text-xs uppercase tracking-wide text-gray-500">
+            Waiting Terlama
+          </div>
+        </UTooltip>
       </UCard>
     </div>
 
@@ -68,11 +72,19 @@
         </UCard>
         <UCard>
           <div class="text-2xl font-bold text-gray-900">{{ avgWaitLabel }}</div>
-          <div class="text-xs uppercase tracking-wide text-gray-500">Avg Wait</div>
+          <UTooltip text="Rata-rata waktu dari room dibuat sampai dapet agent, di rentang tanggal yang dipilih.">
+          <div class="w-fit cursor-help border-b border-dotted border-gray-400 text-xs uppercase tracking-wide text-gray-500">
+            Avg Wait
+          </div>
+        </UTooltip>
         </UCard>
         <UCard>
           <div class="text-2xl font-bold text-gray-900">{{ avgHandleLabel }}</div>
-          <div class="text-xs uppercase tracking-wide text-gray-500">Avg Handle</div>
+          <UTooltip text="Rata-rata waktu dari agent mulai pegang sampai chat resolved, di rentang tanggal yang dipilih.">
+          <div class="w-fit cursor-help border-b border-dotted border-gray-400 text-xs uppercase tracking-wide text-gray-500">
+            Avg Handle
+          </div>
+        </UTooltip>
         </UCard>
       </div>
 

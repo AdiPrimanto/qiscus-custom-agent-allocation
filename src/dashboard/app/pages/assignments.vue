@@ -46,8 +46,16 @@
             <th class="py-2 pr-4">Agent</th>
             <th class="py-2 pr-4">Status</th>
             <th class="py-2 pr-4">Dibuat</th>
-            <th class="py-2 pr-4">Wait</th>
-            <th class="py-2">Handle</th>
+            <th class="py-2 pr-4">
+              <UTooltip text="Waktu dari room dibuat sampai ke-assign ke agent.">
+                <span class="cursor-help border-b border-dotted border-gray-400">Wait</span>
+              </UTooltip>
+            </th>
+            <th class="py-2">
+              <UTooltip text="Waktu dari ke-assign sampai chat resolved.">
+                <span class="cursor-help border-b border-dotted border-gray-400">Handle</span>
+              </UTooltip>
+            </th>
           </tr>
         </thead>
         <tbody>
