@@ -64,6 +64,45 @@
         </tbody>
       </table>
     </UCard>
+
+    <div>
+      <h2 class="text-lg font-semibold text-gray-900">Riwayat Aktivitas Agent</h2>
+      <p class="text-gray-500 text-sm">
+        Perubahan kuota, agent offline/online. "Diubah oleh" self-reported dari Basic Auth, belum diverifikasi per-user.
+      </p>
+    </div>
+
+    <UAlert v-if="activityError" color="error" title="Gagal memuat riwayat" :description="activityError.message" />
+
+    <UCard v-else>
+      <table class="w-full text-sm bg-white">
+        <thead>
+          <tr class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
+            <th class="py-2 pr-4">Waktu</th>
+            <th class="py-2 pr-4">Agent</th>
+            <th class="py-2 pr-4">Kejadian</th>
+            <th class="py-2">Diubah oleh</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-if="!activity?.length">
+            <td colspan="4" class="py-4 text-center text-gray-400">Belum ada aktivitas tercatat.</td>
+          </tr>
+          <tr v-for="entry in activity" :key="entry.id" class="border-b border-gray-100 last:border-0">
+            <td class="py-3 pr-4 tabular-nums text-gray-500">{{ formatTime(entry.occurredAt) }}</td>
+            <td class="py-3 pr-4 font-medium text-gray-900">{{ entry.agentName }}</td>
+            <td class="py-3 pr-4">
+              <UBadge v-if="entry.type === 'quota_change'" color="primary" variant="soft">
+                Kuota {{ entry.oldValue }} → {{ entry.newValue }}
+              </UBadge>
+              <UBadge v-else-if="entry.type === 'offline'" color="error" variant="soft">Offline</UBadge>
+              <UBadge v-else color="primary" variant="soft">Online</UBadge>
+            </td>
+            <td class="py-3">{{ entry.changedBy ?? '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </UCard>
   </div>
 </template>
 
@@ -81,7 +120,29 @@ interface AgentRow {
   graceExpired: boolean;
 }
 
+interface AgentActivityRow {
+  id: number;
+  agentId: number;
+  agentName: string;
+  type: 'quota_change' | 'offline' | 'online';
+  oldValue: number | null;
+  newValue: number | null;
+  changedBy: string | null;
+  occurredAt: string;
+}
+
 const { data: agents, error, refresh } = await useFetch<AgentRow[]>('/api/agents');
+const { data: activity, error: activityError, refresh: refreshActivity } = await useFetch<AgentActivityRow[]>(
+  '/api/agents/activity',
+);
+
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleString('id-ID', {
+    dateStyle: 'short',
+    timeStyle: 'medium',
+    timeZone: 'Asia/Jakarta',
+  });
+}
 
 const drafts = reactive<Record<number, number>>({});
 watch(
@@ -104,7 +165,7 @@ async function save(id: number) {
       method: 'PATCH',
       body: { maxConcurrent: drafts[id] },
     });
-    await refresh();
+    await Promise.all([refresh(), refreshActivity()]);
     toast.add({ title: 'Kuota disimpan', color: 'primary' });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Gagal simpan kuota';

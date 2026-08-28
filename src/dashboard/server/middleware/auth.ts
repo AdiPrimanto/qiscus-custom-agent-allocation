@@ -35,4 +35,9 @@ export default defineEventHandler((event) => {
   if (!passwordsMatch(password, expectedPassword)) {
     return unauthorized();
   }
+
+  // Self-reported label, not a verified identity — the username half of Basic
+  // Auth is never checked. Used only to attribute actions (e.g. quota audit log).
+  const username = separatorIndex === -1 ? null : decoded.slice(0, separatorIndex) || null;
+  event.context.dashboardUser = username;
 });

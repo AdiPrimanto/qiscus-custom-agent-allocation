@@ -1,6 +1,7 @@
 import { prisma } from '../db/prisma';
 import { getAllAgents } from '../qiscus/client';
 import { describeApiError } from '../qiscus/errors';
+import { recordAgentOffline, recordAgentOnline } from './agentActivity';
 
 // Long enough that a brief disconnect (flaky wifi, a page reload) doesn't
 // yank a chat away from an agent mid-conversation, and comfortably above the
@@ -40,12 +41,14 @@ export async function reassignRoomsFromOfflineAgents(): Promise<number> {
     if (isOnline) {
       if (agent.offlineSince) {
         await prisma.agent.update({ where: { id: agent.id }, data: { offlineSince: null } });
+        await recordAgentOnline(agent.id);
       }
       continue;
     }
 
     if (!agent.offlineSince) {
       await prisma.agent.update({ where: { id: agent.id }, data: { offlineSince: new Date() } });
+      await recordAgentOffline(agent.id);
       continue;
     }
 
