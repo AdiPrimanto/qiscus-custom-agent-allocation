@@ -91,7 +91,7 @@
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <UCard>
           <h3 class="mb-3 text-sm font-semibold text-gray-700">Chat masuk</h3>
-          <BarChart
+          <LineChart
             v-if="analytics?.chatPerBucket.length"
             :data="analytics.chatPerBucket"
             :height="220"
