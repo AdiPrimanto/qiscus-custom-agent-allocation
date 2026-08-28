@@ -1,5 +1,5 @@
 import { prisma } from '../db/prisma';
-import { getAvailableAgents } from '../qiscus/client';
+import { getAllAgents } from '../qiscus/client';
 import { describeApiError } from '../qiscus/errors';
 
 // Long enough that a brief disconnect (flaky wifi, a page reload) doesn't
@@ -9,42 +9,33 @@ import { describeApiError } from '../qiscus/errors';
 // offline agent's rooms don't sit stuck for long.
 export const OFFLINE_GRACE_PERIOD_MS = 45 * 1000;
 
-// Sweeps agents currently holding an `assigned` room and checks whether
-// Qiscus still considers them online. There's no "list all agents" endpoint
-// we have access to, so each agent's own `is_available` is read via the same
-// available_agents call pickAgent already uses — scoped to one of their own
-// assigned rooms, which they're guaranteed to be an eligible candidate for.
+// Sweeps every locally-known agent — not just ones currently holding an
+// assigned room. GET /api/v2/admin/agents is a single bulk call covering the
+// whole app, unlike the old per-room available_agents probe, so this now
+// also catches an agent idle with zero assigned rooms going offline (that
+// case was structurally unreachable before: you can only probe an agent
+// through a room they're an eligible candidate for).
 export async function reassignRoomsFromOfflineAgents(): Promise<number> {
-  const agentsWithAssignedRooms = await prisma.agent.findMany({
-    where: { assignments: { some: { status: 'assigned' } } },
-    include: {
-      assignments: {
-        where: { status: 'assigned' },
-        orderBy: { assignedAt: 'asc' },
-        take: 1,
-      },
-    },
-  });
+  const localAgents = await prisma.agent.findMany();
+  if (localAgents.length === 0) {
+    return 0;
+  }
+
+  let remoteAgents;
+  try {
+    remoteAgents = await getAllAgents();
+  } catch (error) {
+    console.error('reassignOffline: failed to fetch agent list', describeApiError(error));
+    return 0;
+  }
+  const remoteById = new Map(remoteAgents.map((remote) => [remote.id, remote]));
 
   let reassignedCount = 0;
 
-  for (const agent of agentsWithAssignedRooms) {
-    const probeRoomId = agent.assignments[0]?.roomId;
-    if (!probeRoomId) {
-      continue;
-    }
-
-    let isOnline: boolean;
-    try {
-      const candidates = await getAvailableAgents(probeRoomId);
-      const seen = candidates.find((candidate) => candidate.id === agent.qiscusAgentId);
-      // Not showing up in this room's candidate list at all is treated the
-      // same as offline — we can't confirm they're reachable.
-      isOnline = seen?.is_available ?? false;
-    } catch (error) {
-      console.error(`reassignOffline: failed to check status for agent ${agent.id}`, describeApiError(error));
-      continue;
-    }
+  for (const agent of localAgents) {
+    // Not showing up in the remote list at all is treated the same as
+    // offline — we can't confirm they're reachable.
+    const isOnline = remoteById.get(agent.qiscusAgentId)?.is_available ?? false;
 
     if (isOnline) {
       if (agent.offlineSince) {
@@ -76,9 +67,11 @@ export async function reassignRoomsFromOfflineAgents(): Promise<number> {
       data: { agentId: null, status: 'waiting', assignedAt: null, lastAssignErrorAt: null, lastAssignErrorStatus: null },
     });
     reassignedCount += result.count;
-    console.log(
-      `reassignOffline: agent ${agent.id} offline for ${Math.round(offlineDurationMs / 1000)}s, requeued ${result.count} room(s)`,
-    );
+    if (result.count > 0) {
+      console.log(
+        `reassignOffline: agent ${agent.id} offline for ${Math.round(offlineDurationMs / 1000)}s, requeued ${result.count} room(s)`,
+      );
+    }
   }
 
   return reassignedCount;

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import FormData from 'form-data';
 import { env } from '../config/env';
-import type { AssignAgentResponse, AvailableAgent } from './types';
+import type { AdminAgent, AdminAgentsResponse, AssignAgentResponse, AvailableAgent } from './types';
 
 // A hung Qiscus response (connection open, no reply) would otherwise block
 // axios forever. getAvailableAgents/assignAgent run inside the allocation
@@ -46,6 +46,44 @@ export async function loginAdmin(email: string, password: string): Promise<strin
     timeout: QISCUS_API_TIMEOUT_MS,
   });
   return response.data.data.user.authentication_token as string;
+}
+
+// GET /api/v2/admin/agents needs a login-derived AdminToken, unlike the
+// App-Id+Secret-Key pair used everywhere else in this file — that's the only
+// pair the room-scoped endpoints accept. Cached at module scope so reconcile
+// (which calls this every cycle) doesn't log in from scratch each time; only
+// re-login when the cached token actually gets rejected.
+let cachedAdminToken: string | null = null;
+
+async function getAdminToken(forceRefresh: boolean): Promise<string> {
+  if (!cachedAdminToken || forceRefresh) {
+    cachedAdminToken = await loginAdmin(env.qiscusAdminEmail, env.qiscusAdminPassword);
+  }
+  return cachedAdminToken;
+}
+
+// Unlike available_agents, this isn't scoped to a room — it's every agent on
+// the app, so it also covers agents idle with zero assigned rooms (a case
+// getAvailableAgents structurally can't reach, since it can only probe an
+// agent through a room they're already an eligible candidate for).
+export async function getAllAgents(): Promise<AdminAgent[]> {
+  const fetchWith = async (token: string) =>
+    axios.get<AdminAgentsResponse>(`${env.qiscusBaseUrl}/api/v2/admin/agents`, {
+      headers: { Authorization: token, 'Qiscus-App-Id': env.qiscusAppId },
+      params: { limit: 100 },
+      timeout: QISCUS_API_TIMEOUT_MS,
+    });
+
+  try {
+    const response = await fetchWith(await getAdminToken(false));
+    return response.data.data.agents;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      const response = await fetchWith(await getAdminToken(true));
+      return response.data.data.agents;
+    }
+    throw error;
+  }
 }
 
 export async function setMarkAsResolvedWebhook(

@@ -1,11 +1,10 @@
 import { prisma } from '../../utils/prisma';
 import { OFFLINE_GRACE_PERIOD_MS } from '../../utils/constants';
 
-// "online" can't be asserted honestly from local data alone: offlineSince is
-// only ever set for an agent currently holding an assigned room (see
-// reassignRoomsFromOfflineAgents) — an idle agent with zero load is never
-// probed against Qiscus, so its offlineSince staying null does not mean
-// they're online. Report the two states we can actually back with data.
+// reassignRoomsFromOfflineAgents sweeps every local agent each reconcile
+// cycle via GET /api/v2/admin/agents (not scoped to a room), so offlineSince
+// reflects real Qiscus status for idle agents too now — just as of the most
+// recent cycle, not this exact instant.
 type AgentStatus = 'offline' | 'active';
 
 export default defineEventHandler(async (event) => {

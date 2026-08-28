@@ -13,7 +13,7 @@
           <tr class="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
             <th class="py-2 pr-4">Agent</th>
             <th class="py-2 pr-4">
-              <UTooltip text="Active = gak kedeteksi offline, bukan konfirmasi online. Agent yang lagi idle (gak pegang chat) gak pernah dicek langsung ke Qiscus.">
+              <UTooltip text="Dicek langsung ke Qiscus tiap siklus reconcile — termasuk agent yang lagi idle (gak pegang chat).">
                 <span class="cursor-help border-b border-dotted border-gray-400">Status</span>
               </UTooltip>
             </th>

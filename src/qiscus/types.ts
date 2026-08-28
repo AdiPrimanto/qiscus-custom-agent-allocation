@@ -41,6 +41,26 @@ export interface AssignAgentResponse {
   };
 }
 
+export interface AdminAgent {
+  id: number;
+  name: string;
+  email: string;
+  is_available: boolean;
+}
+
+export interface AdminAgentsResponse {
+  data: {
+    agents: AdminAgent[];
+    meta: {
+      after: string | null;
+      before: string | null;
+      per_page: number;
+      total_count: number;
+    };
+  };
+  status: number;
+}
+
 export interface MarkAsResolvedWebhookPayload {
   service: {
     id: number;

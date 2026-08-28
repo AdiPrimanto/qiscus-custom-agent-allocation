@@ -5,6 +5,19 @@ import { env } from '../src/config/env';
 import { prisma } from '../src/db/prisma';
 import { reassignRoomsFromOfflineAgents } from '../src/allocation/reassignOffline';
 
+function mockLogin(token = 'admin-token') {
+  return nock(env.qiscusBaseUrl)
+    .post('/api/v1/auth')
+    .reply(200, { data: { user: { authentication_token: token } } });
+}
+
+function mockAllAgents(agents: Array<{ id: number; name: string; email: string; is_available: boolean }>) {
+  return nock(env.qiscusBaseUrl)
+    .get('/api/v2/admin/agents')
+    .query(true)
+    .reply(200, { data: { agents, meta: { after: null, before: null, per_page: agents.length, total_count: agents.length } }, status: 200 });
+}
+
 describe('reassignRoomsFromOfflineAgents', () => {
   afterEach(async () => {
     await prisma.assignment.deleteMany();
@@ -23,14 +36,8 @@ describe('reassignRoomsFromOfflineAgents', () => {
       data: { roomId: 'room-a', agentId: agent.id, status: 'assigned', assignedAt: new Date() },
     });
 
-    nock(env.qiscusBaseUrl)
-      .get('/api/v2/admin/service/available_agents')
-      .query({ room_id: 'room-a' })
-      .reply(200, {
-        data: {
-          agents: [{ id: 301, name: 'Dewi', email: 'dewi@mail.com', type: 2, type_as_string: 'agent', is_available: false, current_customer_count: 1 }],
-        },
-      });
+    mockLogin();
+    mockAllAgents([{ id: 301, name: 'Dewi', email: 'dewi@mail.com', is_available: false }]);
 
     const reassignedCount = await reassignRoomsFromOfflineAgents();
 
@@ -42,6 +49,21 @@ describe('reassignRoomsFromOfflineAgents', () => {
     expect(assignment?.agentId).toBe(agent.id);
   });
 
+  it('detects an idle agent (zero assigned rooms) going offline — unreachable by the old room-scoped probe', async () => {
+    const agent = await prisma.agent.create({
+      data: { qiscusAgentId: 305, name: 'Fajar', email: 'fajar@mail.com', maxConcurrent: 2 },
+    });
+
+    mockLogin();
+    mockAllAgents([{ id: 305, name: 'Fajar', email: 'fajar@mail.com', is_available: false }]);
+
+    const reassignedCount = await reassignRoomsFromOfflineAgents();
+
+    expect(reassignedCount).toBe(0);
+    const updatedAgent = await prisma.agent.findUnique({ where: { id: agent.id } });
+    expect(updatedAgent?.offlineSince).not.toBeNull();
+  });
+
   it('requeues an agent’s assigned rooms once they have been offline past the grace period', async () => {
     const twoAndAHalfMinutesAgo = new Date(Date.now() - 2.5 * 60 * 1000);
     const agent = await prisma.agent.create({
@@ -51,14 +73,8 @@ describe('reassignRoomsFromOfflineAgents', () => {
       data: { roomId: 'room-b', agentId: agent.id, status: 'assigned', assignedAt: new Date() },
     });
 
-    nock(env.qiscusBaseUrl)
-      .get('/api/v2/admin/service/available_agents')
-      .query({ room_id: 'room-b' })
-      .reply(200, {
-        data: {
-          agents: [{ id: 302, name: 'Budi', email: 'budi@mail.com', type: 2, type_as_string: 'agent', is_available: false, current_customer_count: 1 }],
-        },
-      });
+    mockLogin();
+    mockAllAgents([{ id: 302, name: 'Budi', email: 'budi@mail.com', is_available: false }]);
 
     const reassignedCount = await reassignRoomsFromOfflineAgents();
 
@@ -82,14 +98,8 @@ describe('reassignRoomsFromOfflineAgents', () => {
       data: { roomId: 'room-c', agentId: agent.id, status: 'assigned', assignedAt: new Date() },
     });
 
-    nock(env.qiscusBaseUrl)
-      .get('/api/v2/admin/service/available_agents')
-      .query({ room_id: 'room-c' })
-      .reply(200, {
-        data: {
-          agents: [{ id: 303, name: 'Citra', email: 'citra@mail.com', type: 2, type_as_string: 'agent', is_available: false, current_customer_count: 1 }],
-        },
-      });
+    mockLogin();
+    mockAllAgents([{ id: 303, name: 'Citra', email: 'citra@mail.com', is_available: false }]);
 
     const reassignedCount = await reassignRoomsFromOfflineAgents();
 
@@ -107,14 +117,8 @@ describe('reassignRoomsFromOfflineAgents', () => {
       data: { roomId: 'room-d', agentId: agent.id, status: 'assigned', assignedAt: new Date() },
     });
 
-    nock(env.qiscusBaseUrl)
-      .get('/api/v2/admin/service/available_agents')
-      .query({ room_id: 'room-d' })
-      .reply(200, {
-        data: {
-          agents: [{ id: 304, name: 'Eka', email: 'eka@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 1 }],
-        },
-      });
+    mockLogin();
+    mockAllAgents([{ id: 304, name: 'Eka', email: 'eka@mail.com', is_available: true }]);
 
     const reassignedCount = await reassignRoomsFromOfflineAgents();
 
@@ -125,7 +129,46 @@ describe('reassignRoomsFromOfflineAgents', () => {
     expect(assignment?.status).toBe('assigned');
   });
 
-  it('skips agents with no assigned rooms and makes no Qiscus API calls', async () => {
+  it('treats an agent missing from the agent list entirely as offline', async () => {
+    const oneMinuteAgo = new Date(Date.now() - 60 * 1000);
+    await prisma.agent.create({
+      data: { qiscusAgentId: 306, name: 'Gita', email: 'gita@mail.com', maxConcurrent: 2, offlineSince: oneMinuteAgo },
+    });
+
+    mockLogin();
+    mockAllAgents([]); // Gita doesn't show up at all
+
+    const reassignedCount = await reassignRoomsFromOfflineAgents();
+
+    expect(reassignedCount).toBe(0);
+    const updatedAgent = await prisma.agent.findFirst({ where: { qiscusAgentId: 306 } });
+    expect(updatedAgent?.offlineSince).not.toBeNull();
+  });
+
+  it('re-logs in when the cached admin token gets rejected', async () => {
+    const agent = await prisma.agent.create({
+      data: { qiscusAgentId: 307, name: 'Hadi', email: 'hadi@mail.com', maxConcurrent: 2 },
+    });
+
+    nock(env.qiscusBaseUrl).post('/api/v1/auth').reply(200, { data: { user: { authentication_token: 'stale-token' } } });
+    nock(env.qiscusBaseUrl).get('/api/v2/admin/agents').query(true).reply(401, { errors: ['unauthenticated'] });
+    nock(env.qiscusBaseUrl).post('/api/v1/auth').reply(200, { data: { user: { authentication_token: 'fresh-token' } } });
+    nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/agents')
+      .query(true)
+      .reply(200, {
+        data: { agents: [{ id: 307, name: 'Hadi', email: 'hadi@mail.com', is_available: false }], meta: { after: null, before: null, per_page: 1, total_count: 1 } },
+        status: 200,
+      });
+
+    const reassignedCount = await reassignRoomsFromOfflineAgents();
+
+    expect(reassignedCount).toBe(0);
+    const updatedAgent = await prisma.agent.findUnique({ where: { id: agent.id } });
+    expect(updatedAgent?.offlineSince).not.toBeNull();
+  });
+
+  it('skips agents with no local rows and makes no Qiscus API calls', async () => {
     nock.disableNetConnect();
 
     const reassignedCount = await reassignRoomsFromOfflineAgents();
