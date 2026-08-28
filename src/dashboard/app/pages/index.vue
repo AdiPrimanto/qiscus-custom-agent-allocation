@@ -96,6 +96,7 @@
             :data="analytics.chatPerBucket"
             :height="220"
             x-axis="bucket"
+            :x-formatter="(tick, i) => analytics?.chatPerBucket[i]?.bucket ?? String(tick)"
             :y-axis="['count']"
             :categories="{ count: { name: 'Chat', color: '#27b198' } }"
           />
@@ -108,6 +109,7 @@
             :data="analytics.volumePerAgent"
             :height="220"
             x-axis="agentName"
+            :x-formatter="(tick, i) => analytics?.volumePerAgent[i]?.agentName ?? String(tick)"
             :y-axis="['count']"
             :categories="{ count: { name: 'Chat', color: '#27b198' } }"
           />
