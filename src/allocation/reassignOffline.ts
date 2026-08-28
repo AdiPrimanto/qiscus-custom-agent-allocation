@@ -70,7 +70,10 @@ export async function reassignRoomsFromOfflineAgents(): Promise<number> {
       // leaving a stale value would make a room this offline agent never
       // really finished look like it already has a wait time computed
       // against an assignment it no longer holds.
-      data: { agentId: null, status: 'waiting', assignedAt: null },
+      // lastAssignError* reset too — a room re-entering the queue via a
+      // different agent going offline deserves a fresh shot, not to inherit
+      // an unrelated rejection from whatever it was doing before.
+      data: { agentId: null, status: 'waiting', assignedAt: null, lastAssignErrorAt: null, lastAssignErrorStatus: null },
     });
     reassignedCount += result.count;
     console.log(

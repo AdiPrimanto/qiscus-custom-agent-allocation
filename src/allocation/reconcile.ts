@@ -1,14 +1,18 @@
+import axios from 'axios';
 import { prisma } from '../db/prisma';
 import { tryAssignWaiting } from './allocate';
 import { describeApiError } from '../qiscus/errors';
 
-// A room this old has already been retried on every reconcile cycle since it
-// started waiting — if an hour of that hasn't found it a slot, more retries
-// aren't likely to either (and if Qiscus is rejecting it outright, e.g. a
-// stale/invalid room, retrying is pure waste). Stop spending API calls on it;
-// the dashboard's own "waiting too long" alert (2 min threshold) already
-// flags it for a human well before this kicks in.
-const GIVE_UP_AFTER_MS = 60 * 60 * 1000;
+// A 4xx means Qiscus explicitly rejected this exact room (e.g. it's already
+// resolved on their side) — retrying an identical request it already refused
+// is pure waste. A room with no recorded error, no matter how long it's been
+// waiting, is plain capacity backlog (pickAgent found nobody eligible, which
+// isn't an error at all) and must keep being retried every cycle — giving up
+// on those would silently strand real customers once an agent frees up.
+function isPermanentlyRejected(assignment: { lastAssignErrorStatus: number | null }): boolean {
+  const status = assignment.lastAssignErrorStatus;
+  return status !== null && status >= 400 && status < 500;
+}
 
 export async function reconcileWaitingAssignments(): Promise<number> {
   const waiting = await prisma.assignment.findMany({
@@ -18,7 +22,7 @@ export async function reconcileWaitingAssignments(): Promise<number> {
 
   let assignedCount = 0;
   for (const assignment of waiting) {
-    if (Date.now() - assignment.createdAt.getTime() > GIVE_UP_AFTER_MS) {
+    if (isPermanentlyRejected(assignment)) {
       continue;
     }
     try {
@@ -31,6 +35,16 @@ export async function reconcileWaitingAssignments(): Promise<number> {
       // not stop the rest of the batch from being reconciled — it stays
       // 'waiting' and gets retried on the next reconcile cycle.
       console.error('reconcile: failed to assign a waiting room', { roomId: assignment.roomId, error: describeApiError(error) });
+
+      const status = axios.isAxiosError(error) ? (error.response?.status ?? null) : null;
+      await prisma.assignment
+        .update({
+          where: { id: assignment.id },
+          data: { lastAssignErrorAt: new Date(), lastAssignErrorStatus: status },
+        })
+        .catch((updateError) => {
+          console.error('reconcile: failed to record assign error on room', { roomId: assignment.roomId, error: describeApiError(updateError) });
+        });
     }
   }
 

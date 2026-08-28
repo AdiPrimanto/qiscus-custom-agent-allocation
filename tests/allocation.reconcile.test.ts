@@ -105,25 +105,23 @@ describe('reconcileWaitingAssignments', () => {
     expect(worked?.status).toBe('assigned');
   });
 
-  it('gives up on a room that has been waiting past the give-up threshold, without calling Qiscus for it', async () => {
-    const stale = await prisma.assignment.create({
+  it('gives up on a room Qiscus already rejected with a 4xx, without calling Qiscus again for it', async () => {
+    const rejected = await prisma.assignment.create({
       data: {
-        roomId: 'room-stale',
+        roomId: 'room-rejected',
         status: 'waiting',
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+        lastAssignErrorAt: new Date(Date.now() - 60 * 1000),
+        lastAssignErrorStatus: 400,
       },
     });
     await prisma.assignment.create({
-      data: {
-        roomId: 'room-fresh',
-        status: 'waiting',
-        createdAt: new Date(),
-      },
+      data: { roomId: 'room-fresh', status: 'waiting', createdAt: new Date() },
     });
 
-    const staleRoomCall = nock(env.qiscusBaseUrl)
+    const rejectedRoomCall = nock(env.qiscusBaseUrl)
       .get('/api/v2/admin/service/available_agents')
-      .query({ room_id: 'room-stale' })
+      .query({ room_id: 'room-rejected' })
       .reply(200, { data: { agents: [] } });
 
     nock(env.qiscusBaseUrl)
@@ -141,8 +139,61 @@ describe('reconcileWaitingAssignments', () => {
     const assignedCount = await reconcileWaitingAssignments();
 
     expect(assignedCount).toBe(1);
-    expect(staleRoomCall.isDone()).toBe(false);
-    const staleResult = await prisma.assignment.findUnique({ where: { id: stale.id } });
-    expect(staleResult?.status).toBe('waiting');
+    expect(rejectedRoomCall.isDone()).toBe(false);
+    const rejectedResult = await prisma.assignment.findUnique({ where: { id: rejected.id } });
+    expect(rejectedResult?.status).toBe('waiting');
+  });
+
+  it('keeps retrying a long-waiting room that has no recorded error — plain capacity backlog, not a broken room', async () => {
+    const backlogged = await prisma.assignment.create({
+      data: {
+        roomId: 'room-backlogged',
+        status: 'waiting',
+        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+      },
+    });
+
+    nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query({ room_id: 'room-backlogged' })
+      .reply(200, {
+        data: {
+          agents: [{ id: 43, name: 'Agent D', email: 'd@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 }],
+        },
+      });
+    nock(env.qiscusBaseUrl)
+      .post('/api/v1/admin/service/assign_agent', 'room_id=room-backlogged&agent_id=43&replace_latest_agent=true')
+      .reply(200, { data: { added_agent: { id: 43, name: 'Agent D', email: 'd@mail.com', is_available: true } } });
+
+    const assignedCount = await reconcileWaitingAssignments();
+
+    expect(assignedCount).toBe(1);
+    const result = await prisma.assignment.findUnique({ where: { id: backlogged.id } });
+    expect(result?.status).toBe('assigned');
+  });
+
+  it('records the HTTP status when assign_agent fails, so the next cycle knows to give up', async () => {
+    const assignment = await prisma.assignment.create({
+      data: { roomId: 'room-will-fail', status: 'waiting', createdAt: new Date() },
+    });
+
+    nock(env.qiscusBaseUrl)
+      .get('/api/v2/admin/service/available_agents')
+      .query({ room_id: 'room-will-fail' })
+      .reply(200, {
+        data: {
+          agents: [{ id: 44, name: 'Agent E', email: 'e@mail.com', type: 2, type_as_string: 'agent', is_available: true, current_customer_count: 0 }],
+        },
+      });
+    nock(env.qiscusBaseUrl)
+      .post('/api/v1/admin/service/assign_agent', 'room_id=room-will-fail&agent_id=44&replace_latest_agent=true')
+      .reply(400, { errors: ['room is already resolved'] });
+
+    await reconcileWaitingAssignments();
+
+    const result = await prisma.assignment.findUnique({ where: { id: assignment.id } });
+    expect(result?.status).toBe('waiting');
+    expect(result?.lastAssignErrorStatus).toBe(400);
+    expect(result?.lastAssignErrorAt).not.toBeNull();
   });
 });

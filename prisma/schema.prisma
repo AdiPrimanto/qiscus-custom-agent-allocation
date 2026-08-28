@@ -42,6 +42,14 @@ model Assignment {
   createdAt          DateTime         @default(now()) @map("created_at")
   assignedAt         DateTime?        @map("assigned_at")
   resolvedAt         DateTime?        @map("resolved_at")
+  // Set only when Qiscus's assign_agent call actually errors — never when
+  // pickAgent simply finds no eligible agent (that's not an error, just
+  // normal backlog). reconcile uses lastAssignErrorStatus to decide whether
+  // to keep retrying: a 4xx is Qiscus explicitly rejecting this room, so
+  // further identical retries are pointless; a room with no recorded error
+  // at all is always retried, no matter how long it's been waiting.
+  lastAssignErrorAt     DateTime?     @map("last_assign_error_at")
+  lastAssignErrorStatus Int?          @map("last_assign_error_status")
 
   @@index([status, createdAt])
   @@index([roomId])
