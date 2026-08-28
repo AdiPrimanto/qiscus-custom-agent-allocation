@@ -8,17 +8,42 @@ datasource db {
 }
 
 model Agent {
-  id            Int          @id @default(autoincrement())
-  qiscusAgentId Int          @unique @map("qiscus_agent_id")
+  id            Int                @id @default(autoincrement())
+  qiscusAgentId Int                @unique @map("qiscus_agent_id")
   name          String
   email         String
-  maxConcurrent Int          @default(2) @map("max_concurrent")
-  offlineSince  DateTime?    @map("offline_since")
-  createdAt     DateTime     @default(now()) @map("created_at")
-  updatedAt     DateTime     @updatedAt @map("updated_at")
+  maxConcurrent Int                @default(2) @map("max_concurrent")
+  offlineSince  DateTime?          @map("offline_since")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
   assignments   Assignment[]
+  activityLogs  AgentActivityLog[]
 
   @@map("agents")
+}
+
+enum AgentActivityType {
+  quota_change
+  offline
+  online
+}
+
+model AgentActivityLog {
+  id      Int               @id @default(autoincrement())
+  agentId Int               @map("agent_id")
+  agent   Agent             @relation(fields: [agentId], references: [id])
+  type    AgentActivityType
+  // quota_change only — null for offline/online events.
+  oldValue Int?             @map("old_value")
+  newValue Int?             @map("new_value")
+  // Basic Auth username, self-reported and unvalidated (see server/middleware/auth.ts).
+  // Set for quota_change (a user action); null for offline/online (system-detected,
+  // nobody "did" it).
+  changedBy  String?  @map("changed_by")
+  occurredAt DateTime @default(now()) @map("occurred_at")
+
+  @@index([agentId, occurredAt])
+  @@map("agent_activity_logs")
 }
 
 enum AssignmentStatus {

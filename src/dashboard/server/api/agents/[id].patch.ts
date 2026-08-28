@@ -1,4 +1,4 @@
-import { prisma } from '../../utils/prisma';
+import { updateAgentQuota } from '../../utils/agentActivity';
 
 // 0 is a valid quota — it's how an agent is "paused" (see allocate.ts:
 // effectiveCount >= maxConcurrent excludes them from every eligibility check,
@@ -29,10 +29,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const agent = await prisma.agent.update({
-      where: { id },
-      data: { maxConcurrent },
-    });
+    const agent = await updateAgentQuota(id, maxConcurrent, event.context.dashboardUser ?? null);
     return { id: agent.id, maxConcurrent: agent.maxConcurrent };
   } catch {
     throw createError({ statusCode: 404, statusMessage: 'Agent not found' });

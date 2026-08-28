@@ -20,6 +20,7 @@ function mockAllAgents(agents: Array<{ id: number; name: string; email: string; 
 
 describe('reassignRoomsFromOfflineAgents', () => {
   afterEach(async () => {
+    await prisma.agentActivityLog.deleteMany();
     await prisma.assignment.deleteMany();
     await prisma.agent.deleteMany();
   });
@@ -47,6 +48,23 @@ describe('reassignRoomsFromOfflineAgents', () => {
     const assignment = await prisma.assignment.findFirst({ where: { roomId: 'room-a' } });
     expect(assignment?.status).toBe('assigned');
     expect(assignment?.agentId).toBe(agent.id);
+    const activity = await prisma.agentActivityLog.findMany({ where: { agentId: agent.id } });
+    expect(activity).toHaveLength(1);
+    expect(activity[0]).toMatchObject({ type: 'offline', changedBy: null });
+  });
+
+  it('does not log another offline event on repeat sightings while already offline', async () => {
+    const agent = await prisma.agent.create({
+      data: { qiscusAgentId: 308, name: 'Indra', email: 'indra@mail.com', maxConcurrent: 2, offlineSince: new Date() },
+    });
+
+    mockLogin();
+    mockAllAgents([{ id: 308, name: 'Indra', email: 'indra@mail.com', is_available: false }]);
+
+    await reassignRoomsFromOfflineAgents();
+
+    const activity = await prisma.agentActivityLog.findMany({ where: { agentId: agent.id } });
+    expect(activity).toHaveLength(0);
   });
 
   it('detects an idle agent (zero assigned rooms) going offline — unreachable by the old room-scoped probe', async () => {
@@ -127,6 +145,9 @@ describe('reassignRoomsFromOfflineAgents', () => {
     expect(updatedAgent?.offlineSince).toBeNull();
     const assignment = await prisma.assignment.findFirst({ where: { roomId: 'room-d' } });
     expect(assignment?.status).toBe('assigned');
+    const activity = await prisma.agentActivityLog.findMany({ where: { agentId: agent.id } });
+    expect(activity).toHaveLength(1);
+    expect(activity[0]).toMatchObject({ type: 'online', changedBy: null });
   });
 
   it('treats an agent missing from the agent list entirely as offline', async () => {
