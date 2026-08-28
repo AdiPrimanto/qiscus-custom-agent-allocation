@@ -62,6 +62,7 @@ export default defineEventHandler(async (event) => {
       roomId: row.roomId,
       customerName: row.customerName,
       status: row.status,
+      lastAssignErrorStatus: row.lastAssignErrorStatus,
       agent: row.agent ? { id: row.agent.id, name: row.agent.name } : null,
       createdAt: row.createdAt,
       assignedAt: row.assignedAt,

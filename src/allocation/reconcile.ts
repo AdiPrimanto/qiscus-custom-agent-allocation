@@ -1,4 +1,5 @@
 import axios from 'axios';
+import type { Assignment } from '@prisma/client';
 import { prisma } from '../db/prisma';
 import { tryAssignWaiting } from './allocate';
 import { describeApiError } from '../qiscus/errors';
@@ -9,9 +10,37 @@ import { describeApiError } from '../qiscus/errors';
 // waiting, is plain capacity backlog (pickAgent found nobody eligible, which
 // isn't an error at all) and must keep being retried every cycle — giving up
 // on those would silently strand real customers once an agent frees up.
-function isPermanentlyRejected(assignment: { lastAssignErrorStatus: number | null }): boolean {
+export function isPermanentlyRejected(assignment: { lastAssignErrorStatus: number | null }): boolean {
   const status = assignment.lastAssignErrorStatus;
   return status !== null && status >= 400 && status < 500;
+}
+
+// Shared by the reconcile loop below and the dashboard's manual "retry"
+// action — one attempt at assigning a single waiting room, recording the
+// failure (if any) the same way regardless of caller. Deliberately doesn't
+// consult isPermanentlyRejected itself: a manual retry from the dashboard is
+// exactly the case where a human has decided to try a previously-rejected
+// room again anyway.
+export async function attemptAssignment(assignment: Assignment): Promise<Assignment> {
+  try {
+    return await tryAssignWaiting(assignment);
+  } catch (error) {
+    // One room failing (timed-out transaction, Qiscus API hiccup, ...) should
+    // not stop the rest of the batch from being reconciled — it stays
+    // 'waiting' and gets retried on the next reconcile cycle.
+    console.error('reconcile: failed to assign a waiting room', { roomId: assignment.roomId, error: describeApiError(error) });
+
+    const status = axios.isAxiosError(error) ? (error.response?.status ?? null) : null;
+    try {
+      return await prisma.assignment.update({
+        where: { id: assignment.id },
+        data: { lastAssignErrorAt: new Date(), lastAssignErrorStatus: status },
+      });
+    } catch (updateError) {
+      console.error('reconcile: failed to record assign error on room', { roomId: assignment.roomId, error: describeApiError(updateError) });
+      return assignment;
+    }
+  }
 }
 
 export async function reconcileWaitingAssignments(): Promise<number> {
@@ -25,26 +54,9 @@ export async function reconcileWaitingAssignments(): Promise<number> {
     if (isPermanentlyRejected(assignment)) {
       continue;
     }
-    try {
-      const result = await tryAssignWaiting(assignment);
-      if (result.status === 'assigned') {
-        assignedCount += 1;
-      }
-    } catch (error) {
-      // One room failing (timed-out transaction, Qiscus API hiccup, ...) should
-      // not stop the rest of the batch from being reconciled — it stays
-      // 'waiting' and gets retried on the next reconcile cycle.
-      console.error('reconcile: failed to assign a waiting room', { roomId: assignment.roomId, error: describeApiError(error) });
-
-      const status = axios.isAxiosError(error) ? (error.response?.status ?? null) : null;
-      await prisma.assignment
-        .update({
-          where: { id: assignment.id },
-          data: { lastAssignErrorAt: new Date(), lastAssignErrorStatus: status },
-        })
-        .catch((updateError) => {
-          console.error('reconcile: failed to record assign error on room', { roomId: assignment.roomId, error: describeApiError(updateError) });
-        });
+    const result = await attemptAssignment(assignment);
+    if (result.status === 'assigned') {
+      assignedCount += 1;
     }
   }
 

@@ -53,11 +53,12 @@
                 <span class="cursor-help border-b border-dotted border-gray-400">Wait</span>
               </UTooltip>
             </th>
-            <th class="py-2">
+            <th class="py-2 pr-4">
               <UTooltip text="Waktu dari ke-assign sampai chat resolved.">
                 <span class="cursor-help border-b border-dotted border-gray-400">Handle</span>
               </UTooltip>
             </th>
+            <th class="py-2"></th>
           </tr>
         </thead>
         <tbody>
@@ -72,12 +73,22 @@
             <td class="py-3 pr-4 tabular-nums text-gray-500">
               {{ row.waitTimeMs !== null ? formatDuration(row.waitTimeMs) : '—' }}
             </td>
-            <td class="py-3 tabular-nums text-gray-500">
+            <td class="py-3 pr-4 tabular-nums text-gray-500">
               {{ row.handleTimeMs !== null ? formatDuration(row.handleTimeMs) : '—' }}
+            </td>
+            <td class="py-3">
+              <UTooltip
+                v-if="row.status === 'waiting' && row.lastAssignErrorStatus !== null"
+                :text="`Qiscus nolak room ini (HTTP ${row.lastAssignErrorStatus}) — reconcile otomatis udah berhenti nyoba. Klik buat coba lagi manual.`"
+              >
+                <UButton size="xs" variant="outline" color="warning" :loading="retryingId === row.id" @click="retry(row.id)">
+                  Assign Ulang
+                </UButton>
+              </UTooltip>
             </td>
           </tr>
           <tr v-if="result && result.data.length === 0">
-            <td colspan="7" class="py-6 text-center text-gray-400">Gak ada assignment yang cocok filter ini.</td>
+            <td colspan="8" class="py-6 text-center text-gray-400">Gak ada assignment yang cocok filter ini.</td>
           </tr>
         </tbody>
       </table>
@@ -99,6 +110,7 @@ interface AssignmentRow {
   roomId: string;
   customerName: string | null;
   status: 'waiting' | 'assigned' | 'resolved';
+  lastAssignErrorStatus: number | null;
   agent: { id: number; name: string } | null;
   createdAt: string;
   assignedAt: string | null;
@@ -146,7 +158,28 @@ const query = computed(() => ({
   page: page.value,
 }));
 
-const { data: result, error } = await useFetch<AssignmentsResponse>('/api/assignments', { query, watch: [query] });
+const { data: result, error, refresh } = await useFetch<AssignmentsResponse>('/api/assignments', { query, watch: [query] });
+
+const retryingId = ref<number | null>(null);
+const toast = useToast();
+
+async function retry(id: number) {
+  retryingId.value = id;
+  try {
+    const result = await $fetch<{ status: string }>(`/api/assignments/${id}/retry`, { method: 'POST' });
+    if (result.status === 'assigned') {
+      toast.add({ title: 'Berhasil di-assign ulang', color: 'primary' });
+    } else {
+      toast.add({ title: 'Masih gagal', description: 'Belum ada agent yang kosong / Qiscus nolak lagi.', color: 'warning' });
+    }
+    await refresh();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Gagal coba assign ulang';
+    toast.add({ title: 'Gagal coba assign ulang', description: message, color: 'error' });
+  } finally {
+    retryingId.value = null;
+  }
+}
 
 const statusChips = computed(() => [
   { label: 'Semua', value: '', count: result.value?.counts.all ?? 0 },
